@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🧮 Inventario Rasiva
 
 **Inventario Rasiva** es una aplicación web de gestión de inventario y ventas desarrollada con **React**, **TypeScript**, **Node.js**, **Express** y **MongoDB**.
@@ -54,3 +55,5 @@ npm install
 
 # Corre frontend y backend (usa nodemon si tienes)
 npm run dev
+=======
+
