@@ -6,6 +6,7 @@ export interface Item {
   cantidad: number;
   precio:number;
   fecha: string;
+  costo: number;
   modificadoPor: {
     name: string;
     email: string;

@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import api from '../api/api';
 import { useNavigate } from 'react-router-dom';
 
+interface Borrador {
+  _id: string;
+  cliente: string;
+  fechaEntrega: string;
+}
+
 export default function VerBorradores() {
-  const [borradores, setBorradores] = useState([]);
+  const [borradores, setBorradores] = useState<Borrador[]>([]);
   const navigate = useNavigate();
 
   const cargarBorradores = () => {
@@ -20,7 +26,7 @@ export default function VerBorradores() {
     if (!confirm('¿Estás seguro de eliminar este borrador?')) return;
     try {
       await api.delete(`/cotizaciones/${id}`);
-      cargarBorradores(); // recargar la lista
+      cargarBorradores();
     } catch (err) {
       console.error('Error al eliminar borrador', err);
       alert('Error al eliminar borrador');
@@ -36,6 +42,7 @@ export default function VerBorradores() {
             <th className="p-2 text-left">Cliente</th>
             <th className="p-2 text-left">Entrega</th>
             <th className="p-2">Acciones</th>
+            <button className="bg-red-500 text-white px-4 py-2 rounded">Botón Rojo</button>
           </tr>
         </thead>
         <tbody>

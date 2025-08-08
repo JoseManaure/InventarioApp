@@ -5,14 +5,14 @@ export default function Navbar() {
   const location = useLocation();
 
   const linkClass = (path: string) =>
-    `px-4 py-2 rounded ${
+    `px-4 py-2 rounded mr-2 transition-colors ${
       location.pathname === path
-        ? 'bg-zinc-900 text-white'
-        : 'text-zinc-700 hover:bg-zinc-200'
+        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+        : 'text-zinc-700 dark:text-gray-200 hover:bg-zinc-200 dark:hover:bg-zinc-700'
     }`;
 
   return (
-    <nav className="flex gap-2 bg-zinc-50 p-4 shadow-md">
+    <nav className="flex flex-wrap items-center bg-zinc-50 dark:bg-gray-800 p-4 shadow-md transition-colors">
       <Link to="/inventario" className={linkClass('/inventario')}>
         Inventario
       </Link>

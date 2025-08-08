@@ -27,5 +27,6 @@ const itemSchema = new mongoose.Schema({
 
 // ✅ Este es el único índice: sparse + único
 itemSchema.index({ codigo: 1 }, { unique: true, sparse: true });
+itemSchema.index({ nombre: 'text', codigo: 'text' });
 
 module.exports = mongoose.model('Item', itemSchema);

@@ -41,14 +41,16 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route path="inventario" element={<Inventario />} />
         <Route path="cotizaciones" element={<Cotizaciones />} />
+        <Route path="ver-borradores" element={<VerBorradores />} />
+        <Route path="cotizacion/:id" element={<Cotizaciones />} />
         <Route path="cotizaciones/:id" element={<Cotizaciones />} />
         <Route path="cotizacion/:id/ver" element={<VistaCotizacion />} />
+          <Route path="/cotizaciones/nueva" element={<Cotizaciones />} />
         <Route path="ver-cotizaciones" element={<VerCotizaciones />} />
         <Route path="facturas" element={<Facturas />} />
         <Route path="facturas/nueva" element={<FacturaCompra />} />
         <Route path="productos" element={<Productos />} />
         <Route path="notas" element={<NotasDeVenta />} />
-        <Route path="ver-borradores" element={<VerBorradores />} />
         <Route path="comparador" element={<ComparadorPrecios />} />
         <Route path="comparar" element={<ComparadorPrecios />} />
       </Route>

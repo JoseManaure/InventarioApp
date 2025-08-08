@@ -6,6 +6,14 @@ const CotizacionSchema = new mongoose.Schema({
   fechaHoy: String,
   fechaEntrega: String,
   metodoPago: String,
+  rutCliente: String,
+giroCliente: String,
+direccionCliente: String,
+comunaCliente: String,
+ciudadCliente: String,
+atencion: String,
+emailCliente: String,
+telefonoCliente: String,
 
   tipo: {
     type: String,
@@ -25,10 +33,10 @@ const CotizacionSchema = new mongoose.Schema({
       total: { type: Number, required: true }
     }
   ],
-
+  anulada: { type: Boolean, default: false },
   estado: {
     type: String,
-    enum: ['borrador', 'finalizada'],
+    enum: ['borrador', 'finalizada','cancelada'],
     default: 'finalizada',
   },
 

@@ -1,16 +1,15 @@
 const { jsPDF } = require('jspdf');
-require('jspdf-autotable');;
+require('jspdf-autotable'); // solo require para extender jsPDF
 const fs = require('fs');
 const path = require('path');
 
-// ✅ Corrección: __dirname bien escrito
+// Ruta logo base64
 const logoPath = path.join(__dirname, '../assets/logo rasiva.png');
-
 const logoBase64 = fs.existsSync(logoPath)
   ? fs.readFileSync(logoPath, 'base64')
   : null;
 
-function generarPDF(cliente, productos, extras) {
+function generarGuiaPDF(cliente, productos, extras) {
   const doc = new jsPDF();
   const fechaHoy = new Date().toLocaleDateString('es-CL');
   const numero = extras.numeroDocumento || 'N°000000';
@@ -80,7 +79,6 @@ function generarPDF(cliente, productos, extras) {
     yCliente += 6;
   }
 
-  // ✅ Aquí ya funciona doc.autoTable
   doc.autoTable({
     startY: yCliente + 5,
     head: [['Item', 'Cant.', 'Descripción', 'Valor Unit.', 'Total']],
@@ -96,7 +94,6 @@ function generarPDF(cliente, productos, extras) {
     columnStyles: {
       3: { halign: 'left' },
       4: { halign: 'right' },
-      5: { halign: 'right' },
     },
   });
 
@@ -144,8 +141,7 @@ function generarPDF(cliente, productos, extras) {
     url: 'mailto:comercialrasiva@gmail.com',
   });
 
-  // ✅ Retornar como buffer para guardar
   return Buffer.from(doc.output('arraybuffer'));
 }
 
-module.exports = { generarPDF };
+module.exports = { generarGuiaPDF };

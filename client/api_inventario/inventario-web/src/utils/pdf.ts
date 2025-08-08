@@ -19,6 +19,7 @@ export function generarGuiaPDF(
     fechaEntrega: string;
     metodoPago: string;
     tipoDocumento: string;
+    cotizacionBaseNumero?: number;
     rutCliente?: string;
     numeroDocumento?: string;
       giroCliente?: string;
@@ -66,7 +67,15 @@ if (extras.tipo === 'cotizacion') {
   doc.setFont('helvetica', 'bold');
  doc.setFontSize(16);
 doc.setFont('helvetica', 'bold');
-doc.text(`${tituloPDF.toUpperCase()} N° ${numero}`, 105, 50, { align: 'center' });
+
+let tituloCompleto = `${tituloPDF.toUpperCase()} N° ${numero}`;
+if (extras.tipo === 'nota' && extras.cotizacionBaseNumero) {
+  tituloCompleto += ` - Basado en Cotización N° ${extras.cotizacionBaseNumero}`;
+}
+
+doc.setFontSize(14);
+doc.setFont('helvetica', 'bold');
+doc.text(tituloCompleto, 105, 50, { align: 'center' });
 
   // Datos cotización a la derecha
   doc.setFontSize(10);
@@ -91,7 +100,7 @@ const datosDerecha = [
   ['Mail:', extras.emailCliente || '—'],
   ['Entrega:', extras.direccion || '—'],
   ['Cel.:', extras.telefonoCliente || '—'],
-  ['Entrega:', extras.fechaEntrega || 'Por definir'],
+  ['Fecha Entrega:', extras.fechaEntrega || 'Por definir'],
   ['Pago:', extras.metodoPago || 'Contado'],
 ];
 

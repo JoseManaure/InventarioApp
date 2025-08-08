@@ -62,4 +62,28 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
+// Función para escapar caracteres especiales en regex
+function escapeRegex(text) {
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+// Buscar por nombre o código
+router.get('/buscar', verifyToken, async (req, res) => {
+  const q = req.query.q?.toString().toLowerCase() || '';
+  const safeQ = escapeRegex(q);
+
+  try {
+    const items = await Item.find({
+      $or: [
+        { nombre: new RegExp(safeQ, 'i') },
+        { codigo: new RegExp(safeQ, 'i') }
+      ]
+    }).limit(5);
+    res.json(items);
+  } catch (err) {
+    console.error('Error en búsqueda:', err);
+    res.status(500).json({ error: 'Error en búsqueda' });
+  }
+});
+
 module.exports = router;
