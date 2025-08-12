@@ -154,7 +154,7 @@ export default function VerCotizaciones() {
             }`}
           >
             <FileText size={14} />
-            {cot.yaConvertida ? 'Ya convertida' : 'Convertir a Nota'}
+            {cot.yaConvertida ? 'Ya convertida' : ' a Nota'}
           </button>
 
           <button

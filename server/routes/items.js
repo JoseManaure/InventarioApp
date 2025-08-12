@@ -5,7 +5,7 @@ const verifyToken = require('../middleware/auth');
 
 // Crear o actualizar item
 router.post('/', verifyToken, async (req, res) => {
-  const { nombre, cantidad, precio, fecha, comprometidos, codigo } = req.body;
+  const { nombre, cantidad, precio, fecha, comprometidos, codigo, costo } = req.body;
 
   try {
     let existente;
@@ -37,6 +37,7 @@ router.post('/', verifyToken, async (req, res) => {
         cantidad,
         precio,
         fecha: new Date(fecha),
+        costo,
         modificadoPor: req.user,
         comprometidos,
         codigo // nuevo campo opcional

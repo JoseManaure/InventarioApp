@@ -1,6 +1,7 @@
 import React from 'react';
 
 interface Props {
+   disableTipo?: boolean; // <--- nueva prop opcional
   cliente: string;
   setCliente: React.Dispatch<React.SetStateAction<string>>;
   rutCliente: string;
@@ -44,6 +45,7 @@ export default function FormularioCliente(props: Props) {
     atencion, setAtencion,
     emailCliente, setEmailCliente,
     telefonoCliente, setTelefonoCliente,
+    disableTipo = false,
   } = props;
 
   return (
@@ -96,6 +98,7 @@ export default function FormularioCliente(props: Props) {
           <option value="transferencia">Transferencia</option>
         </select>
         <select
+        disabled={disableTipo} 
           value={tipo}
           onChange={e => setTipo(e.target.value as 'cotizacion' | 'nota')}
           className="input input-bordered w-48"

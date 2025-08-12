@@ -1,5 +1,6 @@
 // src/pages/Cotizaciones.tsx
 import axios from 'axios';
+
 import { useState, useEffect } from 'react';
 import {  FileText } from 'lucide-react';
 import api from '../api/api';
@@ -28,7 +29,7 @@ export default function Cotizaciones() {
   const [busqueda, setBusqueda] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  
+const [precios, setPrecios] = useState<Record<string, number>>({})
 
   // Campos adicionales cliente
   const [giroCliente, setGiroCliente] = useState('');
@@ -39,6 +40,7 @@ export default function Cotizaciones() {
   const [emailCliente, setEmailCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
 
+const [preciosPersonalizados, setPreciosPersonalizados] = useState<Record<string, number>>({});
 
   
 useEffect(() => {
@@ -70,6 +72,16 @@ useEffect(() => {
       const cantidades: Record<string, number> = {};
       const productosDesdeCotizacion = d.productos || [];
 
+
+         const preciosIniciales: Record<string, number> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (d.productos || []).forEach((p: any) => {
+        const idProd = p.itemId || p._id;
+        preciosIniciales[idProd] = p.precio || 0;
+      });
+      setPrecios(preciosIniciales);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const productosCompletos = productosDesdeCotizacion.map((p: any) => {
         const id = p.itemId || p._id;
         cantidades[id] = p.cantidad;
@@ -121,6 +133,15 @@ useEffect(() => {
     });
   };
 
+ 
+
+  const handlePrecioChange = (id: string, nuevoPrecio: number) => {
+    setPreciosPersonalizados(prev => ({
+      ...prev,
+      [id]: nuevoPrecio,
+    }));
+      };
+
   const handleCantidadChange = (id: string, cantidad: number) => {
     setSelectedItems(prev => {
       const copia = { ...prev, [id]: cantidad };
@@ -131,21 +152,24 @@ useEffect(() => {
 
   // Calcular resumen
   const calcularResumen = () => {
-    const seleccionados = Object.entries(selectedItems).map(([id, cantidad]) => {
-      const i = items.find(it => it._id === id);
-      const precio = i?.precio ?? 0;
-      return {
-        id,
-        nombre: i?.nombre ?? '[Eliminado]',
-        cantidad,
-        precio,
-        total: precio * cantidad,
-      };
-    });
-    const subtotal = seleccionados.reduce((a, p) => a + p.total, 0);
-    const iva = subtotal * 0.19;
-    return { seleccionados, subtotal, iva, total: subtotal + iva };
-  };
+  const seleccionados = Object.entries(selectedItems).map(([id, cantidad]) => {
+    const i = items.find(it => it._id === id);
+      // Usa precio personalizado si existe, sino el original
+  const precio = preciosPersonalizados[id] ?? (i?.precio ?? 0);
+    return {
+      id,
+      nombre: i?.nombre ?? '[Eliminado]',
+      cantidad,
+      precio,
+      total: precio * cantidad,
+    };
+  });
+  const subtotal = seleccionados.reduce((a, p) => a + p.total, 0);
+  const iva = subtotal * 0.19;
+  return { seleccionados, subtotal, iva, total: subtotal + iva };
+};
+
+
 
   // Guardar borrador
   const guardarBorrador = async () => {
@@ -217,7 +241,7 @@ useEffect(() => {
         metodoPago,
         tipo,
         productos: seleccionados.map(p => ({
-          itemId: p.id, cantidad: p.cantidad,
+          itemId: p.id, cantidad: p.cantidad,precio: p.precio,
         })),
       });
       setCorrelativo(res.data.numero);
@@ -368,6 +392,7 @@ useEffect(() => {
         setDireccion={setDireccion}
         fechaEntrega={fechaEntrega}
         setFechaEntrega={setFechaEntrega}
+        disableTipo={!!id} 
         metodoPago={metodoPago}
         setMetodoPago={setMetodoPago}
         tipo={tipo}
@@ -391,31 +416,31 @@ useEffect(() => {
 
      
      
-<BuscadorProductos
-  busqueda={busqueda}
-  setBusqueda={setBusqueda}
-  onAgregar={(item) => {
-    setSelectedItems((prev) => ({
-      ...prev,
-      [item._id]: (prev[item._id] || 0) + 1
-    }));
-  }}
-/>
+          <BuscadorProductos
+            busqueda={busqueda}
+            setBusqueda={setBusqueda}
+            onAgregar={(item) => {
+              setSelectedItems((prev) => ({
+                ...prev,
+                [item._id]: (prev[item._id] || 0) + 1
+              }));
+            }}
+            />
 
-    <br></br><br></br><br></br><br></br><br></br><br></br><br></br>
 
-      <ResumenTablaProductos
-        seleccionados={seleccionados}
-        subtotal={subtotal}
-        iva={iva}
-        total={total}
-        onCantidadChange={handleCantidadChange}
-        onEliminar={eliminarProducto}
-      />
+        <ResumenTablaProductos
+            seleccionados={seleccionados}
+            subtotal={subtotal}
+            iva={iva}
+            total={total}
+            onCantidadChange={handleCantidadChange}
+            onEliminar={eliminarProducto}
+            onPrecioChange={handlePrecioChange}
+          />
       
       
 
-    </div>
+        </div>
     
-  );
-}
+        );
+      }

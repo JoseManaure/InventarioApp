@@ -7,9 +7,18 @@ const verifyToken = require('../middleware/auth');
 const Cotizacion = require('../models/Cotizacion');
 const Item = require('../models/Item');
 const { generarGuiaPDF } = require('../utils/pdf');
+
 const { obtenerNuevoCorrelativoSeguro } = require('../utils/correlativo');
 
+const mongoose = require('mongoose')
 
+
+// 🔹 Función para obtener correlativo
+async function obtenerNuevoCorrelativo(tipoDocumento) {
+  const ultima = await Cotizacion.findOne({ tipoDocumento })
+    .sort({ numeroDocumento: -1 });
+  return ultima ? ultima.numeroDocumento + 1 : 1;
+}
 
 // Config multer
 const storage = multer.diskStorage({
@@ -68,10 +77,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-
 // Crear o actualizar cotización o nota (protegido)
-router.post('/', verifyToken, async (req, res) => { 
+router.post('/', verifyToken, async (req, res) => {
   try {
     const {
       cliente,
@@ -86,17 +93,14 @@ router.post('/', verifyToken, async (req, res) => {
       _id, // opcional para actualizar borrador
       estado, // opcional para actualizar estado
       rutCliente,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente
+      giroCliente,
+      direccionCliente,
+      comunaCliente,
+      ciudadCliente,
+      atencion,
+      emailCliente,
+      telefonoCliente
     } = req.body;
-
-     const nuevoNumero = await obtenerNuevoCorrelativoSeguro(tipo === 'cotizacion' ? 'cotizacion' : 'nota');
-
 
     if (!['cotizacion', 'nota'].includes(tipo)) {
       return res.status(400).json({ error: 'Tipo inválido (cotizacion o nota)' });
@@ -106,77 +110,70 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Debe incluir al menos un producto' });
     }
 
-        let fechaEntregaValida;
+    // Validar fechaEntrega o asignar fecha hoy sin hora
+    let fechaEntregaValida;
     if (!fechaEntrega || isNaN(new Date(fechaEntrega).getTime())) {
-      // Si no se envía fecha válida, usar fecha de hoy (sin hora)
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
-      fechaEntregaValida = hoy.toISOString();
+      fechaEntregaValida = hoy.toISOString().split('T')[0];
     } else {
-    const soloFecha = new Date(fechaEntrega);
-    soloFecha.setHours(0, 0, 0, 0);
-    fechaEntregaValida = soloFecha.toISOString().split('T')[0]; // "2025-08-05"
+      const soloFecha = new Date(fechaEntrega);
+      soloFecha.setHours(0, 0, 0, 0);
+      fechaEntregaValida = soloFecha.toISOString().split('T')[0];
     }
-
 
     // Validar existencia y stock (solo si es nota)
     for (const p of productos) {
       const item = await Item.findById(p.itemId);
-
       if (!item && tipo === 'nota') {
         return res.status(400).json({ error: `Producto no encontrado: ${p.itemId}` });
       }
-
-      if (!item && tipo === 'cotizacion') {
-        continue;
-      }
-
-     
     }
 
     // Preparar productos con precios
     const productosConPrecio = await Promise.all(
       productos.map(async (p) => {
         const item = await Item.findById(p.itemId);
-
-        if (!item) {
-          return {
-            itemId: p.itemId,
-            nombre: '[Producto eliminado]',
-            cantidad: p.cantidad,
-            precio: 0,
-            total: 0,
-          };
+        const cantidad = Number(p.cantidad);
+        const precio = item ? Number(item.precio) : 0;
+        if (isNaN(cantidad) || isNaN(precio)) {
+          throw new Error(`Producto inválido: cantidad=${p.cantidad}, precio=${item ? item.precio : '0'}`);
         }
-
         return {
-          itemId: item._id,
-          nombre: item.nombre,
-          cantidad: p.cantidad,
-          precio: item.precio,
-          total: item.precio * p.cantidad
+          itemId: item ? item._id : p.itemId,
+          nombre: item ? item.nombre : '[Producto eliminado]',
+          cantidad,
+          precio,
+          total: cantidad * precio,
         };
       })
     );
 
     const total = productosConPrecio.reduce((acc, p) => acc + p.total, 0);
-
-    // CORRELATIVO por tipo
-    
+    let numeroFinal = null;
     let cotizacion;
 
-  if (_id) {
-  const cotizacionExistente = await Cotizacion.findById(_id);
-const numeroActual = cotizacionExistente ? cotizacionExistente.numero : nuevoNumero;
-      // Actualizar documento existente
-      cotizacion = await Cotizacion.findByIdAndUpdate(_id, {
+    if (_id) {
+      // Editar cotización existente
+      const cotizacionExistente = await Cotizacion.findById(_id);
+
+      numeroFinal = cotizacionExistente?.numero || null;
+
+      // Si estaba en borrador y ahora no, asignar nuevo correlativo seguro
+      if (cotizacionExistente?.estado === 'borrador' && estado !== 'borrador') {
+        numeroFinal = await obtenerNuevoCorrelativoSeguro(tipo);
+      }
+
+      cotizacion = await Cotizacion.findByIdAndUpdate(
+        _id,
+        {
           cliente,
           direccion,
           fechaHoy,
           fechaEntrega: fechaEntregaValida,
           metodoPago,
           tipo,
-          numero: numeroActual,
+          numero: numeroFinal,
           productos: productosConPrecio,
           total,
           numeroDocumento,
@@ -190,41 +187,44 @@ const numeroActual = cotizacionExistente ? cotizacionExistente.numero : nuevoNum
           atencion,
           emailCliente,
           telefonoCliente
-        }, { new: true });
+        },
+        { new: true }
+      );
 
     } else {
-      // Crear nuevo documento
-      cotizacion = await Cotizacion.create({
-  cliente,
-  direccion,
-  fechaHoy,
-  fechaEntrega: fechaEntregaValida,
-  metodoPago,
-  tipo,
-  numero: nuevoNumero,
-  productos: productosConPrecio,
-  total,
-  numeroDocumento,
-  tipoDocumento,
-  estado: 'finalizada',
-  rutCliente,
-  giroCliente,
-  direccionCliente,
-  comunaCliente,
-  ciudadCliente,
-  atencion,
-  emailCliente,
-  telefonoCliente
-});
+      // Crear nueva cotización
+      if (estado !== 'borrador') {
+        numeroFinal = await obtenerNuevoCorrelativoSeguro(tipo);
+      }
 
+      cotizacion = await Cotizacion.create({
+        cliente,
+        direccion,
+        fechaHoy,
+        fechaEntrega: fechaEntregaValida,
+        metodoPago,
+        tipo,
+        numero: numeroFinal,
+        productos: productosConPrecio,
+        total,
+        numeroDocumento,
+        tipoDocumento,
+        estado: estado || 'finalizada',
+        rutCliente,
+        giroCliente,
+        direccionCliente,
+        comunaCliente,
+        ciudadCliente,
+        atencion,
+        emailCliente,
+        telefonoCliente
+      });
     }
 
-
-
-    // Comprometer stock si la fecha de entrega es futura
-    if (tipo === 'nota' ) {
-      const fechaEntrega = new Date(cotizacion.fechaEntrega);
-      if (isNaN(fechaEntrega)) {
+    // Comprometer stock si es nota
+    if (tipo === 'nota') {
+      const fechaEntregaObj = new Date(cotizacion.fechaEntrega);
+      if (isNaN(fechaEntregaObj)) {
         return res.status(400).json({ error: 'Fecha de entrega inválida' });
       }
       for (const p of productos) {
@@ -232,21 +232,20 @@ const numeroActual = cotizacionExistente ? cotizacionExistente.numero : nuevoNum
         if (item) {
           item.comprometidos.push({
             cantidad: p.cantidad,
-            hasta: new Date(fechaEntregaValida),
+            hasta: fechaEntregaObj,
             cotizacionId: cotizacion._id
           });
           await item.save();
         }
       }
     }
+
     res.status(201).json(cotizacion);
   } catch (error) {
-    console.error('❌ Error al crear cotización:', error);
-    res.status(500).json({ error: 'Error al crear cotización' });
+    console.error('Error al crear o actualizar cotización:', error);
+    res.status(500).json({ error: 'Error al crear o actualizar cotización' });
   }
 });
-
-
 
 
 // Listar borradores
@@ -324,16 +323,30 @@ router.post('/borrador', verifyToken, async (req, res) => {
 // Crear cotización desde borrador
 router.post('/desde-borrador/:id', async (req, res) => {
   try {
-    const borrador = await Cotizacion.findById(req.params.id);
+    const { id } = req.params;
+
+    // 1️⃣ Validar que el ID sea válido → evita CastError
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    // 2️⃣ Buscar borrador válido
+    const borrador = await Cotizacion.findById(id);
 
     if (!borrador || borrador.estado !== 'borrador' || borrador.tipo !== 'cotizacion') {
       return res.status(400).json({ error: 'No es un borrador válido' });
     }
 
+    // 3️⃣ Evitar conversión duplicada
     const yaExiste = await Cotizacion.findOne({ cotizacionOriginalId: borrador._id, tipo: 'cotizacion' });
-    if (yaExiste) return res.status(400).json({ error: 'Este borrador ya fue convertido' });
+    if (yaExiste) {
+      return res.status(400).json({ error: 'Este borrador ya fue convertido' });
+    }
 
-    const nuevoNumero = await obtenerNuevoCorrelativo('cotizacion');
+    // 4️⃣ Usar tu función para obtener un número único
+    const nuevoNumero = await obtenerNuevoCorrelativoSeguro('cotizacion');
+
+    // 5️⃣ Crear nueva cotización
     const nuevaCotizacion = new Cotizacion({
       ...borrador.toObject(),
       _id: undefined,
@@ -347,8 +360,68 @@ router.post('/desde-borrador/:id', async (req, res) => {
 
     res.json(nuevaCotizacion);
   } catch (err) {
-    console.error(err);
+    console.error("Error al convertir borrador:", err);
     res.status(500).json({ error: 'Error al convertir borrador' });
+  }
+});
+
+
+
+
+// PUT para actualizar borrador y pasarlo a cotización
+router.put('/borrador-a-cotizacion/:id', verifyToken, async (req, res) => {
+  try {
+    const id = req.params.id;
+    
+    const {
+      cliente,
+      direccion,
+      rutCliente,
+      giroCliente,
+      direccionCliente,
+      comunaCliente,
+      ciudadCliente,
+      atencion,
+      emailCliente,
+      telefonoCliente,
+      fechaHoy,
+      fechaEntrega,
+      metodoPago,
+      productos
+    } = req.body;
+    
+     // Obtener nuevo número correlativo seguro para cotización
+    const nuevoNumero = await obtenerNuevoCorrelativoSeguro('cotizacion');
+
+    // Actualiza y cambia tipo a "cotizacion"
+    const cotizacionActualizada = await Cotizacion.findByIdAndUpdate(
+      id,
+      {
+        cliente,
+        direccion,
+        rutCliente,
+        giroCliente,
+        direccionCliente,
+        comunaCliente,
+        ciudadCliente,
+        atencion,
+        emailCliente,
+        telefonoCliente,
+        fechaHoy,
+        fechaEntrega,
+        metodoPago,
+        tipo: "cotizacion", // se convierte
+         numero: nuevoNumero,
+         estado: 'finalizada',
+        productos
+      },
+      { new: true }
+    );
+
+    res.json(cotizacionActualizada);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al actualizar borrador" });
   }
 });
 
@@ -372,6 +445,7 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ message: 'Error del servidor' });
   }
 });
+
 
 // Anular nota de venta por id (y liberar stock comprometido)
 router.put('/:id/anular', async (req, res) => {
@@ -426,12 +500,9 @@ router.post('/:id/convertir-a-nota', verifyToken, async (req, res) => {
     if (yaConvertida) {
       return res.status(400).json({ error: 'Esta cotización ya fue convertida a una nota de venta' });
     }
-    // Buscar última nota para correlativo
-    const ultimaNota = await Cotizacion.findOne({ tipo: 'nota', numero: { $exists: true } }).sort({ numero: -1 });
-    const RANGO_BASE_NOTA = 8636;
-    let nuevoNumero = RANGO_BASE_NOTA + 1;
-    if (ultimaNota && typeof ultimaNota.numero === 'number' && ultimaNota.numero >= RANGO_BASE_NOTA)
-      nuevoNumero = ultimaNota.numero + 1;
+    
+ // para que no de error duplicado numero
+const nuevoNumero = await obtenerNuevoCorrelativoSeguro('nota');
 
     // Crear nueva nota con datos de la cotización
     const nuevaNota = await Cotizacion.create({

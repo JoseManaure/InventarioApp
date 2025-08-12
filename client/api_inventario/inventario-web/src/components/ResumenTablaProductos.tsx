@@ -1,5 +1,6 @@
 // src/components/ResumenTablaProductos.tsx
-import React from 'react';
+import React, { memo, useCallback } from 'react';
+import { Trash2 } from 'lucide-react';
 
 interface ProductoResumen {
   id: string;
@@ -16,77 +17,137 @@ interface Props {
   total: number;
   onCantidadChange: (id: string, cantidad: number) => void;
   onEliminar: (id: string) => void;
+  onPrecioChange: (id: string, precio: number) => void;
 }
 
-export default function ResumenTablaProductos({
-  seleccionados,
-  subtotal,
-  iva,
-  total,
-  onCantidadChange,
-  onEliminar,
-}: Props) {
-  return (
-      <table className=" table-fixed border-collapse bg-white shadow-md rounded-lg min-h-[200px]">
-        <thead>
-          <tr className="bg-gray-100 text-gray-700 text-sm">
-            <th className="px-4 py-2 w-24">Cantidad</th>
-            <th className="px-4 py-2">Detalle</th>
-            <th className="px-4 py-2 text-right w-32">Valor Unit.</th>
-            <th className="px-4 py-2 text-right w-32">Subtotal</th>
-            <th className="px-4 py-2 text-center w-24">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {seleccionados.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="text-center py-6 text-gray-500 italic bg-gray-50">
-                🛒 Agrega productos desde el buscador superior. Aquí verás el resumen.
-              </td>
+const ResumenTablaProductos = memo(
+  ({
+    seleccionados,
+    subtotal,
+    iva,
+    total,
+    onCantidadChange,
+    onEliminar,
+    onPrecioChange,
+  }: Props) => {
+    const handleCantidadChange = useCallback(
+      (id: string, value: string) => {
+        const cantidad = parseInt(value, 10);
+        if (!isNaN(cantidad) && cantidad > 0) {
+          onCantidadChange(id, cantidad);
+        }
+      },
+      [onCantidadChange]
+    );
+
+    const handlePrecioChange = useCallback(
+      (id: string, value: string) => {
+        const precio = parseFloat(value);
+        if (!isNaN(precio) && precio >= 0) {
+          onPrecioChange(id, precio);
+        }
+      },
+      [onPrecioChange]
+    );
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full border border-gray-200 bg-white shadow-lg rounded-xl overflow-hidden">
+          <thead>
+            <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
+              <th className="px-4 py-3 text-left w-24">Cant.</th>
+              <th className="px-4 py-3 text-left">Detalle</th>
+              <th className="px-4 py-3 text-right w-32">Precio Unit.</th>
+              <th className="px-4 py-3 text-right w-32">Subtotal</th>
+              <th className="px-4 py-3 text-center w-20">Acción</th>
             </tr>
-          ) : (
-            seleccionados.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50 text-sm">
+          </thead>
+
+          <tbody>
+            {seleccionados.map((p) => (
+              <tr
+                key={p.id}
+                className="border-b last:border-none hover:bg-gray-50 transition-colors"
+              >
                 <td className="px-4 py-2">
                   <input
                     type="number"
                     min={1}
-                    className="w-16 border rounded p-1 text-sm"
                     value={p.cantidad}
-                    onChange={(e) => onCantidadChange(p.id, parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleCantidadChange(p.id, e.target.value)
+                    }
+                    className="w-20 border border-gray-300 rounded-md px-2 py-1 text-sm text-right focus:ring-2 focus:ring-blue-400 focus:outline-none"
                   />
                 </td>
                 <td className="px-4 py-2">{p.nombre}</td>
-                <td className="px-4 py-2 text-right">${p.precio.toLocaleString('es-CL')}</td>
-                <td className="px-4 py-2 text-right">${p.total.toLocaleString('es-CL')}</td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={p.precio}
+                    onChange={(e) =>
+                      handlePrecioChange(p.id, e.target.value)
+                    }
+                    className="w-24 border border-gray-300 rounded-md px-2 py-1 text-sm text-right focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                  />
+                </td>
+                <td className="px-4 py-2 text-right font-medium">
+                  {(p.precio * p.cantidad).toLocaleString('es-CL')}
+                </td>
                 <td className="px-4 py-2 text-center">
                   <button
-                    className="text-red-600 hover:text-red-800 text-sm"
                     onClick={() => onEliminar(p.id)}
+                    className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors"
+                    title="Eliminar producto"
                   >
-                    Eliminar
+                    <Trash2 size={16} />
                   </button>
                 </td>
               </tr>
-            ))
+            ))}
+          </tbody>
+
+          {seleccionados.length > 0 && (
+            <tfoot className="bg-gray-50 text-sm font-medium">
+              <tr>
+                <td colSpan={3} className="px-4 py-2 text-right">
+                  Subtotal
+                </td>
+                <td colSpan={2} className="px-4 py-2 text-right">
+                  ${subtotal.toLocaleString('es-CL')}
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={3} className="px-4 py-2 text-right">
+                  IVA (19%)
+                </td>
+                <td colSpan={2} className="px-4 py-2 text-right">
+                  ${iva.toLocaleString('es-CL')}
+                </td>
+              </tr>
+              <tr>
+                <td
+                  colSpan={3}
+                  className="px-4 py-2 text-right text-green-700 font-bold"
+                >
+                  Total
+                </td>
+                <td
+                  colSpan={2}
+                  className="px-4 py-2 text-right text-green-700 font-bold"
+                >
+                  ${total.toLocaleString('es-CL')}
+                </td>
+              </tr>
+            </tfoot>
           )}
-        </tbody>
-        {seleccionados.length > 0 && (
-          <tfoot className="bg-gray-50 text-sm font-medium">
-            <tr>
-              <td colSpan={3} className="px-4 py-2 text-right">Subtotal</td>
-              <td colSpan={2} className="px-4 py-2 text-right">${subtotal.toLocaleString('es-CL')}</td>
-            </tr>
-            <tr>
-              <td colSpan={3} className="px-4 py-2 text-right">IVA (19%)</td>
-              <td colSpan={2} className="px-4 py-2 text-right">${iva.toLocaleString('es-CL')}</td>
-            </tr>
-            <tr>
-              <td colSpan={3} className="px-4 py-2 text-right text-green-700">Total</td>
-              <td colSpan={2} className="px-4 py-2 text-right text-green-700">${total.toLocaleString('es-CL')}</td>
-            </tr>
-          </tfoot>
-        )}
-      </table>
-  );
-}
+        </table>
+      </div>
+    );
+  }
+);
+
+ResumenTablaProductos.displayName = 'ResumenTablaProductos';
+export default ResumenTablaProductos;

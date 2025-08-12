@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState } from 'react';
 import api from '../api/api';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,38 +8,43 @@ export default function Inventario() {
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState<string[]>([]);
   const [excelFile, setExcelFile] = useState<File | null>(null);
+const enviarInventario = async () => {
+  const lineas = texto.split('\n').filter((linea) => linea.trim() !== '');
+  const mensajes: string[] = [];
 
-  const enviarInventario = async () => {
-    const lineas = texto.split('\n').filter((linea) => linea.trim() !== '');
-    const mensajes: string[] = [];
+  for (const linea of lineas) {
+    const [codigo, nombre, cantidadStr, costoStr, precioStr, fecha] = linea.split(',').map((e) => e.trim());
+    if (!codigo || !nombre || !cantidadStr || !fecha) continue;
 
-    for (const linea of lineas) {
-      const [nombre, cantidadStr, precio, fecha] = linea.split(',').map((e) => e.trim());
-      if (!nombre || !cantidadStr || !fecha) continue;
+    const cantidad = parseInt(cantidadStr);
+    const costo = parseFloat(costoStr);
+    const precio = parseFloat(precioStr);
 
-      const cantidad = parseInt(cantidadStr);
-      if (isNaN(cantidad)) continue;
+    if (isNaN(cantidad)) continue;
 
-      try {
-        const res = await api.post('/items', {
-          uuid: uuidv4(),
-          nombre,
-          cantidad,
-          precio,
-          fecha,
-        });
+    try {
+      const res = await api.post('/items', {
+        uuid: uuidv4(),
+        codigo,
+        nombre,
+        cantidad,
+        costo,
+        precio,
+        fecha,
+      });
 
-        mensajes.push(`✅ ${res.data.nombre} → ${res.data._mensaje || 'Guardado correctamente'}`);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (err: any) {
-        console.error('Error al guardar:', err);
-        mensajes.push(`❌ ${nombre} → Error al guardar`);
-      }
+      mensajes.push(`✅ ${res.data.nombre} → ${res.data._mensaje || 'Guardado correctamente'}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error('Error al guardar:', err);
+      mensajes.push(`❌ ${nombre} → Error al guardar`);
     }
+  }
 
-    setResultados(mensajes);
-    setTexto('');
-  };
+  setResultados(mensajes);
+  setTexto('');
+};
+
 
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,6 +67,7 @@ export default function Inventario() {
         const codigo = row['codigo'] || row['Codigo'] || '';
         const nombre = row['nombre'] || row['Nombre'];
         const cantidad = parseInt(row['cantidad'] || row['Cantidad']);
+        const costo = parseFloat(row['costo'] || row['Costo']);
         const precio = parseInt(row['precio'] || row['Precio']);
         const fecha = row['fecha'] || row['Fecha'];
 
@@ -76,6 +83,7 @@ export default function Inventario() {
             nombre,
             cantidad,
             precio,
+            costo,
             fecha,
           });
 
@@ -106,7 +114,7 @@ export default function Inventario() {
       <textarea
         rows={10}
         cols={50}
-        placeholder="ej: tornillos, 20, 23000, 2025-07-10"
+        placeholder="ej: 12022, tornillos, 20, costo, precio, 2025-07-10"
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
       />

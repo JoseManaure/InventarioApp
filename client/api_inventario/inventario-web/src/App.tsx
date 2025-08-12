@@ -11,9 +11,10 @@ import Facturas from './pages/Facturas';
 import Productos from './pages/Productos';
 import NotasDeVenta from './pages/NotasDeVentas';
 import VerCotizaciones from './pages/VerCotizaciones';
-import VerBorradores from './pages/VerBorradores';
 import VistaCotizacion from './pages/VistaCotizacion';
 import ComparadorPrecios from './pages/ComparadorPrecios';
+import VerBorradores from './pages/VerBorradores';
+import EditarBorrador from './pages/EditarBorrador';
 
 import api, { setAuthToken } from './api/api';
 
@@ -37,24 +38,32 @@ function App() {
   if (!user) return <Login onLogin={setUser} />;
 
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route path="inventario" element={<Inventario />} />
-        <Route path="cotizaciones" element={<Cotizaciones />} />
-        <Route path="ver-borradores" element={<VerBorradores />} />
-        <Route path="cotizacion/:id" element={<Cotizaciones />} />
-        <Route path="cotizaciones/:id" element={<Cotizaciones />} />
-        <Route path="cotizacion/:id/ver" element={<VistaCotizacion />} />
-          <Route path="/cotizaciones/nueva" element={<Cotizaciones />} />
-        <Route path="ver-cotizaciones" element={<VerCotizaciones />} />
-        <Route path="facturas" element={<Facturas />} />
-        <Route path="facturas/nueva" element={<FacturaCompra />} />
-        <Route path="productos" element={<Productos />} />
-        <Route path="notas" element={<NotasDeVenta />} />
-        <Route path="comparador" element={<ComparadorPrecios />} />
-        <Route path="comparar" element={<ComparadorPrecios />} />
-      </Route>
-    </Routes>
+   <Routes>
+  <Route path="/" element={<Layout />}>
+    <Route path="inventario" element={<Inventario />} />
+    <Route path="cotizaciones" element={<Cotizaciones />} />
+    <Route path="ver-borradores" element={<VerBorradores />} />
+    
+
+    {/* Ruta para editar borrador */}
+    <Route path="/borrador/:id" element={<EditarBorrador />} />
+
+    {/* Rutas para cotizaciones */}
+    <Route path="cotizacion/:id" element={<Cotizaciones />} />
+    <Route path="cotizaciones/:id" element={<Cotizaciones />} />
+    <Route path="cotizacion/:id/ver" element={<VistaCotizacion />} />
+    <Route path="cotizaciones/nueva" element={<Cotizaciones />} />
+
+    <Route path="ver-cotizaciones" element={<VerCotizaciones />} />
+    <Route path="facturas" element={<Facturas />} />
+    <Route path="facturas/nueva" element={<FacturaCompra />} />
+    <Route path="productos" element={<Productos />} />
+    <Route path="notas" element={<NotasDeVenta />} />
+    <Route path="comparador" element={<ComparadorPrecios />} />
+    <Route path="comparar" element={<ComparadorPrecios />} />
+  </Route>
+</Routes>
+
   );
 }
 

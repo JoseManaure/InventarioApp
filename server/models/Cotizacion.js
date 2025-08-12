@@ -57,7 +57,7 @@ telefonoCliente: String,
   timestamps: true
 });
 
-// ✅ Único índice, sparse y único en campo `numero`
-CotizacionSchema.index({ numero: 1 }, { unique: true, sparse: true });
+// CotizacionSchema.index({ numero: 1 }, { unique: true, sparse: true });
+
 
 module.exports = mongoose.model('Cotizacion', CotizacionSchema);
