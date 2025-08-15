@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface Props {
-   disableTipo?: boolean; // <--- nueva prop opcional
+  disableTipo?: boolean;
   cliente: string;
   setCliente: React.Dispatch<React.SetStateAction<string>>;
   rutCliente: string;
@@ -50,6 +50,7 @@ export default function FormularioCliente(props: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Datos principales */}
       <div className="flex flex-wrap gap-2">
         <input
           type="text"
@@ -58,14 +59,17 @@ export default function FormularioCliente(props: Props) {
           onChange={e => setCliente(e.target.value)}
           className="input input-bordered w-48"
         />
-       
+
+        
+        {/* Dirección del cliente (detallada) */}
         <input
           type="text"
-          placeholder="Dirección"
+          placeholder="Dirección Cliente"
           value={direccionCliente}
           onChange={e => setDireccionCliente(e.target.value)}
           className="input input-bordered w-60"
         />
+
         <input
           type="text"
           placeholder="Comuna"
@@ -73,6 +77,7 @@ export default function FormularioCliente(props: Props) {
           onChange={e => setComunaCliente(e.target.value)}
           className="input input-bordered w-40"
         />
+
         <input
           type="text"
           placeholder="Ciudad"
@@ -80,25 +85,27 @@ export default function FormularioCliente(props: Props) {
           onChange={e => setCiudadCliente(e.target.value)}
           className="input input-bordered w-40"
         />
-        
-         <input
+
+        <input
           type="date"
           placeholder="Fecha Entrega"
           value={fechaEntrega ? new Date(fechaEntrega).toISOString().split('T')[0] : ''}
           onChange={e => setFechaEntrega(e.target.value)}
           className="input input-bordered w-48"
         />
+
         <select
           value={metodoPago}
           onChange={e => setMetodoPago(e.target.value)}
           className="input input-bordered w-48"
         >
           <option value="efectivo">Efectivo</option>
-          <option value="debito">Debito</option>
+          <option value="debito">Débito</option>
           <option value="transferencia">Transferencia</option>
         </select>
+
         <select
-        disabled={disableTipo} 
+          disabled={disableTipo}
           value={tipo}
           onChange={e => setTipo(e.target.value as 'cotizacion' | 'nota')}
           className="input input-bordered w-48"
@@ -106,6 +113,7 @@ export default function FormularioCliente(props: Props) {
           <option value="cotizacion">Cotización</option>
           <option value="nota">Nota de Venta</option>
         </select>
+
         <input
           type="text"
           placeholder="Celular"
@@ -115,16 +123,17 @@ export default function FormularioCliente(props: Props) {
         />
       </div>
 
-      {/* Título: Datos adicionales */}
+      {/* Datos adicionales */}
       <h2 className="text-sm font-semibold text-gray-600">Datos Adicionales del Cliente</h2>
       <div className="flex flex-wrap gap-2">
-         <input
+        <input
           type="text"
           placeholder="RUT"
           value={rutCliente}
           onChange={e => setRutCliente(e.target.value)}
           className="input input-bordered w-36"
         />
+
         <input
           type="text"
           placeholder="Giro"
@@ -132,6 +141,7 @@ export default function FormularioCliente(props: Props) {
           onChange={e => setGiroCliente(e.target.value)}
           className="input input-bordered w-48"
         />
+
         <input
           type="text"
           placeholder="Atención"
@@ -139,6 +149,17 @@ export default function FormularioCliente(props: Props) {
           onChange={e => setAtencion(e.target.value)}
           className="input input-bordered w-48"
         />
+
+      {/* Dirección general (para notas de venta) */}
+        <input
+          type="text"
+          placeholder="Dirección (para documento)"
+          value={direccion}
+          onChange={e => setDireccion(e.target.value)}
+          className="input input-bordered w-60"
+        />
+
+
         <input
           type="email"
           placeholder="Correo"
@@ -146,9 +167,7 @@ export default function FormularioCliente(props: Props) {
           onChange={e => setEmailCliente(e.target.value)}
           className="input input-bordered w-60"
         />
-        
       </div>
-
     </div>
   );
 }

@@ -62,8 +62,18 @@ export default function VerCotizaciones() {
     try {
       const confirmar = window.confirm('¿Convertir esta cotización en nota de venta?');
       if (!confirmar) return;
+      
+    // ✅ Usar precios y cantidades actuales del frontend
+    const productosActualizados = cotizacion.productos?.map(p => ({
+      ...p,
+      total: (p.precio || 0) * (p.cantidad || 0)
+    }));
 
-      const res = await api.post(`/cotizaciones/${cotizacion._id}/convertir-a-nota`);
+
+      const res = await api.post(
+      `/cotizaciones/${cotizacion._id}/convertir-a-nota`,
+      { productos: productosActualizados }
+    );
       const nuevaNota = res.data;
 
       const pdfBlob = generarGuiaPDF(nuevaNota.cliente, nuevaNota.productos, {
@@ -133,7 +143,11 @@ export default function VerCotizaciones() {
         <td className="bg-blue-50 px-4 py-2">{cot.direccion}</td>
         <td className="bg-yellow-50 px-4 py-2">{cot.fechaEntrega}</td>
         <td className="bg-purple-50 px-4 py-2">{cot.metodoPago}</td>
-        <td className="bg-pink-50 px-4 py-2">${cot.total?.toLocaleString('es-CL') || '0'}</td>
+        <td className="bg-pink-50 px-4 py-2">
+  ${(
+    cot.productos?.reduce((acc, p) => acc + (p.precio || 0) * (p.cantidad || 0), 0) || 0
+  ).toLocaleString('es-CL')}
+</td>
         <td className="bg-gray-50 px-4 py-2 space-y-1">
           {cot.pdfUrl && (
             <a

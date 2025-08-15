@@ -39,75 +39,49 @@ const [precios, setPrecios] = useState<Record<string, number>>({})
   const [atencion, setAtencion] = useState('');
   const [emailCliente, setEmailCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
-
+const [productos, setProductos] = useState<any[]>([]);
 const [preciosPersonalizados, setPreciosPersonalizados] = useState<Record<string, number>>({});
 
   
 useEffect(() => {
-  if (!id || id === 'null' || id === 'undefined') {
-    console.warn('❌ ID inválido, no se carga cotización');
-    return;
-  }
+  if (!id) return;
 
   api.get(`/cotizaciones/${id}`)
-    .then((res) => {
+    .then(res => {
       const d = res.data;
 
       setCliente(d.cliente || '');
       setRutCliente(d.rutCliente || '');
-      setDireccion(d.direccion || '');
-      setFechaEntrega(d.fechaEntrega ? new Date(d.fechaEntrega).toISOString().split('T')[0] : '');
-      setMetodoPago(d.metodoPago || 'efectivo');
-      setTipo(d.tipo || 'cotizacion');
-
-      // ✅ Campos cliente correctamente nombrados
-      setGiroCliente(d.giroCliente || '');
       setDireccionCliente(d.direccionCliente || '');
       setComunaCliente(d.comunaCliente || '');
       setCiudadCliente(d.ciudadCliente || '');
+      setFechaEntrega(d.fechaEntrega || '');
+      setMetodoPago(d.metodoPago || 'efectivo');
+      setTipo(d.tipo || 'cotizacion');
+      setGiroCliente(d.giroCliente || '');
       setAtencion(d.atencion || '');
       setEmailCliente(d.emailCliente || '');
       setTelefonoCliente(d.telefonoCliente || '');
 
-      const cantidades: Record<string, number> = {};
-      const productosDesdeCotizacion = d.productos || [];
+      const preciosIniciales: Record<string, number> = {};
+      const preciosPersIniciales: Record<string, number> = {};
 
-
-         const preciosIniciales: Record<string, number> = {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (d.productos || []).forEach((p: any) => {
         const idProd = p.itemId || p._id;
         preciosIniciales[idProd] = p.precio || 0;
+        preciosPersIniciales[idProd] = p.precio || 0; // 👈 aquí guardamos también
       });
+
+      setProductos(d.productos || []);
       setPrecios(preciosIniciales);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const productosCompletos = productosDesdeCotizacion.map((p: any) => {
-        const id = p.itemId || p._id;
-        cantidades[id] = p.cantidad;
-        return {
-          _id: id,
-          nombre: p.nombre || '[Sin nombre]',
-          cantidad: p.cantidad,
-          precio: p.precio || 0,
-        };
-      });
-
-      setSelectedItems(cantidades);
-      setItems((prevItems) => {
-        const nuevos = [...prevItems];
-        productosCompletos.forEach((p) => {
-          if (!nuevos.some(i => i._id === p._id)) nuevos.push(p);
-        });
-        return nuevos;
-      });
-
+      setPreciosPersonalizados(preciosPersIniciales); // 👈 importante
     })
-    .catch((err) => {
-      console.error('❌ Error al cargar cotización o nota', err);
-      alert('No se pudo cargar el documento');
+    .catch(err => {
+      console.error("Error cargando cotización:", err);
     });
 }, [id]);
+
 
 
 
@@ -176,8 +150,12 @@ useEffect(() => {
     const { seleccionados, total } = calcularResumen();
     try {
       await api.post('/cotizaciones/borrador', {
-        cliente, direccion, fechaEntrega,
-        metodoPago, tipo, total,      
+        cliente,
+         direccion, 
+         fechaEntrega,
+        metodoPago,
+         tipo: "cotizacion",
+         total,      
          rutCliente,
         giroCliente,
         direccionCliente,
@@ -186,6 +164,7 @@ useEffect(() => {
         atencion,
         emailCliente,
         telefonoCliente,
+        estado:"borrador",
         
         productos: seleccionados.map(p => ({
           itemId: p.id,
@@ -196,151 +175,165 @@ useEffect(() => {
         })),
       });
       alert('✅ Borrador guardado');
+      navigate("/borradores");
     } catch {
       alert('❌ Error al guardar borrador');
     }
   };
 
-  // Enviar cotización o nota de venta
-  const enviarCotizacion = async () => {
-    if (enviando) return;
-    setEnviando(true);
+// Enviar cotización o nota de venta
+const enviarCotizacion = async () => {
+  if (enviando) return;
+  setEnviando(true);
 
-    if (id) {
-      await actualizarCotizacion();
-      setEnviando(false);
-      return;
-    }
+  if (id) {
+    await actualizarCotizacion();
+    setEnviando(false);
+    return;
+  }
 
-    const { seleccionados } = calcularResumen();
+  const { seleccionados } = calcularResumen();
 
-    if (tipo === 'nota') {
-      for (const p of seleccionados) {
-        const i = items.find(it => it._id === p.id);
-        if (!i) continue;
-        if (p.cantidad > i.cantidad) {
-          alert(`⚠️ Advertencia: "${p.nombre}" no tiene suficiente stock. El stock quedará en negativo.`);
-        }
+  if (tipo === 'nota') {
+    for (const p of seleccionados) {
+      const i = items.find(it => it._id === p.id);
+      if (!i) continue;
+      if (p.cantidad > i.cantidad) {
+        alert(`⚠️ Advertencia: "${p.nombre}" no tiene suficiente stock. El stock quedará en negativo.`);
       }
     }
+  }
 
-    try {
-      const res = await api.post('/cotizaciones', {
-        cliente,
-        direccion,
-        rutCliente,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente,
-        fechaHoy: new Date().toLocaleDateString(),
-        fechaEntrega,
-        metodoPago,
-        tipo,
-        productos: seleccionados.map(p => ({
-          itemId: p.id, cantidad: p.cantidad,precio: p.precio,
-        })),
-      });
-      setCorrelativo(res.data.numero);
+  try {
+    const res = await api.post('/cotizaciones', {
+      cliente,
+      direccion,
+      rutCliente,
+      giroCliente,
+      direccionCliente,
+      comunaCliente,
+      ciudadCliente,
+      atencion,
+      emailCliente,
+      telefonoCliente,
+      fechaHoy: new Date().toLocaleDateString(),
+      fechaEntrega,
+      metodoPago,
+      tipo,
+      productos: seleccionados.map(p => ({
+        itemId: p.id, 
+        cantidad: p.cantidad,
+        precio: preciosPersonalizados[p.id] ?? p.precio, // ✅ precio personalizado
+      })),
+    });
+    setCorrelativo(res.data.numero);
 
-      const pdfBlob = generarGuiaPDF(cliente, seleccionados, {
-        fechaEntrega,
-        metodoPago,
-        tipoDocumento: tipo,
-        rutCliente,
-        numeroDocumento: res.data.numero,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente,
-        tipo,
-        direccion,
-      });
+    // Generar PDF usando precios personalizados
+    const productosParaPDF = seleccionados.map(p => ({
+      ...p,
+      precio: preciosPersonalizados[p.id] ?? p.precio,
+    }));
 
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfUrl(url);
+    const pdfBlob = generarGuiaPDF(cliente, productosParaPDF, {
+      fechaEntrega,
+      metodoPago,
+      tipoDocumento: tipo,
+      rutCliente,
+      numeroDocumento: res.data.numero,
+      giroCliente,
+      direccionCliente,
+      comunaCliente,
+      ciudadCliente,
+      atencion,
+      emailCliente,
+      telefonoCliente,
+      tipo,
+      direccion,
+    });
 
-      const fd = new FormData();
-      fd.append('file', new File([pdfBlob], 'doc.pdf', { type: 'application/pdf' }));
-      fd.append('cotizacionId', res.data._id);
-      await api.post('/cotizaciones/upload-pdf', fd);
+    const url = URL.createObjectURL(pdfBlob);
+    setPdfUrl(url);
 
-      alert('✅ Documento creado');
-      resetFormulario();
-    } catch (err) {
-      console.error(err);
-      alert('❌ Error al crear');
-    }
-    setEnviando(false);
-  };
+    const fd = new FormData();
+    fd.append('file', new File([pdfBlob], 'doc.pdf', { type: 'application/pdf' }));
+    fd.append('cotizacionId', res.data._id);
+    await api.post('/cotizaciones/upload-pdf', fd);
 
-  // Actualizar cotización
-  const actualizarCotizacion = async () => {
-    const { seleccionados } = calcularResumen();
-    try {
-      const res = await api.put(`/cotizaciones/${id}`, {
-        cliente,
-        direccion,
-        rutCliente,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente,
-        fechaHoy: new Date().toLocaleDateString(),
-        fechaEntrega,
-        metodoPago,
-        tipo,
-        
-        productos: seleccionados.map(p => ({
-          itemId: p.id,
-          cantidad: p.cantidad,
-          precio: p.precio,
-        })),
-       
-      });
+    alert('✅ Documento creado');
+    resetFormulario();
+  } catch (err) {
+    console.error(err);
+    alert('❌ Error al crear');
+  }
+  setEnviando(false);
+};
 
-      setCorrelativo(res.data.numero);
+// Actualizar cotización
+const actualizarCotizacion = async () => {
+  const { seleccionados } = calcularResumen();
+  try {
+    const res = await api.put(`/cotizaciones/${id}`, {
+      cliente,
+      direccion,
+      rutCliente,
+      giroCliente,
+      direccionCliente,
+      comunaCliente,
+      ciudadCliente,
+      atencion,
+      emailCliente,
+      telefonoCliente,
+      fechaHoy: new Date().toLocaleDateString(),
+      fechaEntrega,
+      metodoPago,
+      tipo,
+      productos: seleccionados.map(p => ({
+        itemId: p.id,
+        cantidad: p.cantidad,
+        precio: preciosPersonalizados[p.id] ?? p.precio, // ✅ precio personalizado
+      })),
+    });
 
-      const pdfBlob = generarGuiaPDF(cliente, seleccionados, {
-        fechaEntrega,
-        metodoPago,
-        tipoDocumento: tipo,
-        rutCliente,
-        numeroDocumento: res.data.numero,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente,
-        tipo,
-        direccion,
-      });
+    setCorrelativo(res.data.numero);
 
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfUrl(url);
+    // Generar PDF usando precios personalizados
+    const productosParaPDF = seleccionados.map(p => ({
+      ...p,
+      precio: preciosPersonalizados[p.id] ?? p.precio,
+    }));
 
-      const fd = new FormData();
-      fd.append('file', new File([pdfBlob], 'doc.pdf', { type: 'application/pdf' }));
-      fd.append('cotizacionId', res.data._id);
-      await api.post('/cotizaciones/upload-pdf', fd);
+    const pdfBlob = generarGuiaPDF(cliente, productosParaPDF, {
+      fechaEntrega,
+      metodoPago,
+      tipoDocumento: tipo,
+      rutCliente,
+      numeroDocumento: res.data.numero,
+      giroCliente,
+      direccionCliente,
+      comunaCliente,
+      ciudadCliente,
+      atencion,
+      emailCliente,
+      telefonoCliente,
+      tipo,
+      direccion,
+    });
 
-      alert('✅ Cotización actualizada');
-    } catch (err) {
-      console.error(err);
-      alert('❌ Error al actualizar cotización');
-    }
-  };
+    const url = URL.createObjectURL(pdfBlob);
+    setPdfUrl(url);
+
+    const fd = new FormData();
+    fd.append('file', new File([pdfBlob], 'doc.pdf', { type: 'application/pdf' }));
+    fd.append('cotizacionId', res.data._id);
+    await api.post('/cotizaciones/upload-pdf', fd);
+
+    alert('✅ Cotización actualizada');
+  } catch (err) {
+    console.error(err);
+    alert('❌ Error al actualizar cotización');
+  }
+};
+
 
   // Reset formulario
   const resetFormulario = () => {
