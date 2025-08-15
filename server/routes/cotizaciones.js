@@ -91,7 +91,7 @@ router.post('/', verifyToken, async (req, res) => {
       tipoDocumento, // factura | boleta | guia
       productos,
       _id, // opcional para actualizar borrador
-      estado, // opcional para actualizar estado
+      estado, // 'borrador' o 'finalizada'
       rutCliente,
       giroCliente,
       direccionCliente,
@@ -112,17 +112,19 @@ router.post('/', verifyToken, async (req, res) => {
 
     // Validar fechaEntrega o asignar fecha hoy sin hora
     let fechaEntregaValida;
+    let fechaEntregaObj;
     if (!fechaEntrega || isNaN(new Date(fechaEntrega).getTime())) {
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
       fechaEntregaValida = hoy.toISOString().split('T')[0];
+      fechaEntregaObj = hoy;
     } else {
-      const soloFecha = new Date(fechaEntrega);
-      soloFecha.setHours(0, 0, 0, 0);
-      fechaEntregaValida = soloFecha.toISOString().split('T')[0];
+      fechaEntregaObj = new Date(fechaEntrega);
+      fechaEntregaObj.setHours(0, 0, 0, 0);
+      fechaEntregaValida = fechaEntregaObj.toISOString().split('T')[0];
     }
 
-    // Validar existencia y stock (solo si es nota)
+    // Validar existencia (solo si es nota)
     for (const p of productos) {
       const item = await Item.findById(p.itemId);
       if (!item && tipo === 'nota') {
@@ -136,9 +138,6 @@ router.post('/', verifyToken, async (req, res) => {
         const item = await Item.findById(p.itemId);
         const cantidad = Number(p.cantidad);
         const precio = item ? Number(item.precio) : 0;
-        if (isNaN(cantidad) || isNaN(precio)) {
-          throw new Error(`Producto inválido: cantidad=${p.cantidad}, precio=${item ? item.precio : '0'}`);
-        }
         return {
           itemId: item ? item._id : p.itemId,
           nombre: item ? item.nombre : '[Producto eliminado]',
@@ -154,12 +153,11 @@ router.post('/', verifyToken, async (req, res) => {
     let cotizacion;
 
     if (_id) {
-      // Editar cotización existente
+      // Editar existente
       const cotizacionExistente = await Cotizacion.findById(_id);
-
       numeroFinal = cotizacionExistente?.numero || null;
 
-      // Si estaba en borrador y ahora no, asignar nuevo correlativo seguro
+      // Si estaba en borrador y se pasa a finalizada, asignar número
       if (cotizacionExistente?.estado === 'borrador' && estado !== 'borrador') {
         numeroFinal = await obtenerNuevoCorrelativoSeguro(tipo);
       }
@@ -190,9 +188,8 @@ router.post('/', verifyToken, async (req, res) => {
         },
         { new: true }
       );
-
     } else {
-      // Crear nueva cotización
+      // Crear nueva
       if (estado !== 'borrador') {
         numeroFinal = await obtenerNuevoCorrelativoSeguro(tipo);
       }
@@ -221,12 +218,8 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
-    // Comprometer stock si es nota
-    if (tipo === 'nota') {
-      const fechaEntregaObj = new Date(cotizacion.fechaEntrega);
-      if (isNaN(fechaEntregaObj)) {
-        return res.status(400).json({ error: 'Fecha de entrega inválida' });
-      }
+    // Comprometer stock si es nota y no es borrador
+    if (tipo === 'nota' && estado !== 'borrador') {
       for (const p of productos) {
         const item = await Item.findById(p.itemId);
         if (item) {
@@ -480,59 +473,71 @@ router.put('/:id/anular', async (req, res) => {
 });
 
 
-
-// ✅ Convertir cotización a nota de venta correctamente (reserva stock, genera número y PDF)
 router.post('/:id/convertir-a-nota', verifyToken, async (req, res) => {
   try {
     const cotizacion = await Cotizacion.findById(req.params.id);
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada' });
+
     if (cotizacion.estado === 'borrador')
       return res.status(400).json({ error: 'No se puede generar nota desde un borrador' });
     if (cotizacion.tipo === 'nota')
       return res.status(400).json({ error: 'Ya es una nota de venta' });
+      // ✅ Tomar productos SOLO desde el frontend
+      const productosCliente = Array.isArray(req.body.productos)
+        ? req.body.productos
+        : [];
 
-    if (cotizacion.tipo !== 'cotizacion') {
-      return res.status(400).json({ error: 'Solo se puede convertir una cotización' });
-    }
+      if (productosCliente.length === 0) {
+        return res.status(400).json({ error: 'Debes enviar los productos con los precios desde el frontend' });
+      }
 
-    // 🚫 NUEVO: verificar si ya fue convertida
-    const yaConvertida = await Cotizacion.findOne({ cotizacionOriginalId: cotizacion._id, tipo: 'nota' });
-    if (yaConvertida) {
-      return res.status(400).json({ error: 'Esta cotización ya fue convertida a una nota de venta' });
-    }
-    
- // para que no de error duplicado numero
-const nuevoNumero = await obtenerNuevoCorrelativoSeguro('nota');
+      const productosConPrecio = await Promise.all(
+        productosCliente.map(async (p) => {
+          let nombreProducto = p.nombre;
 
-    // Crear nueva nota con datos de la cotización
-    const nuevaNota = await Cotizacion.create({
-      cliente: cotizacion.cliente,
-      direccion: cotizacion.direccion,
-      fechaHoy: new Date().toLocaleDateString('es-CL'),
-      fechaEntrega: cotizacion.fechaEntrega,
-      metodoPago: cotizacion.metodoPago,
+          if (!nombreProducto) {
+            const item = await Item.findById(p.itemId);
+            nombreProducto = item ? item.nombre : '[Producto eliminado]';
+          }
+
+          const cantidad = Number(p.cantidad || 0);
+          const precio = Number(p.precio || 0);
+
+          return {
+            itemId: p.itemId,
+            nombre: nombreProducto,
+            cantidad,
+            precio,
+            total: cantidad * precio,
+          };
+        })
+);
+
+
+    const totalNota = productosConPrecio.reduce((acc, p) => acc + p.total, 0);
+    const nuevoNumero = await obtenerNuevoCorrelativoSeguro('nota');
+
+    // ⚡ Fix duplicado: quitar _id antes de crear la nueva nota
+    const dataNuevaNota = {
+      ...cotizacion.toObject(),
+      _id: undefined,  // <- Mongo genera un nuevo _id
       tipo: 'nota',
       numero: nuevoNumero,
       numeroDocumento: nuevoNumero,
-      productos: cotizacion.productos,
-      total: cotizacion.total,
+      productos: productosConPrecio,
+      total: totalNota,
       estado: 'finalizada',
-      rutCliente: cotizacion.rutCliente || '',
-      giroCliente: cotizacion.giroCliente || '',
-      direccionCliente: cotizacion.direccionCliente || '',
-      comunaCliente: cotizacion.comunaCliente || '',
-      ciudadCliente: cotizacion.ciudadCliente || '',
-      atencion: cotizacion.atencion || '',
-      emailCliente: cotizacion.emailCliente || '',
-      telefonoCliente: cotizacion.telefonoCliente || '',
-      pdfUrl: '',
+      fechaHoy: new Date().toLocaleDateString('es-CL'),
       cotizacionOriginalId: cotizacion._id,
-    });
+      pdfUrl: ''
+    };
 
-    // Generar PDF con jsPDF y autotable
+    const nuevaNota = await Cotizacion.create(dataNuevaNota);
+
+    // 📄 PDF con precios ajustados
     const pdfBuffer = generarGuiaPDF(
       cotizacion.cliente,
-      cotizacion.productos,
+      productosConPrecio,
       {
         tipo: 'nota',
         direccion: cotizacion.direccion,
@@ -551,26 +556,12 @@ const nuevoNumero = await obtenerNuevoCorrelativoSeguro('nota');
       }
     );
 
-    // Guardar PDF en disco
     const filename = `nota-${nuevaNota._id}.pdf`;
     const filepath = path.join(__dirname, `../uploads/${filename}`);
     fs.writeFileSync(filepath, pdfBuffer);
 
     nuevaNota.pdfUrl = `/uploads/${filename}`;
-    
     await nuevaNota.save();
-      // ✅ Reservar stock al convertir a nota
-for (const p of cotizacion.productos) {
-  const item = await Item.findById(p.itemId);
-  if (item) {
-    item.comprometidos.push({
-      cantidad: p.cantidad,
-      hasta: new Date(nuevaNota.fechaEntrega),
-      cotizacionId: nuevaNota._id
-    });
-    await item.save();
-  }
-}
 
     res.status(201).json(nuevaNota);
   } catch (err) {
@@ -578,6 +569,7 @@ for (const p of cotizacion.productos) {
     res.status(500).json({ error: 'Error al convertir a nota de venta' });
   }
 });
+
 
 router.put('/:id', verifyToken, async (req, res) => {
   try {
