@@ -24,6 +24,7 @@ export default function Login({ onLogin }: LoginProps) {
 
     setAuthToken(res.data.token);
     onLogin(res.data.user);
+    window.location.href = "/dashboard";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error('🔴 Error en login:', err.response?.data || err.message);

@@ -8,43 +8,52 @@ export default function Inventario() {
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState<string[]>([]);
   const [excelFile, setExcelFile] = useState<File | null>(null);
-const enviarInventario = async () => {
-  const lineas = texto.split('\n').filter((linea) => linea.trim() !== '');
-  const mensajes: string[] = [];
+  const [progreso, setProgreso] = useState(0); // ✅ progreso en %
+  const [cargando, setCargando] = useState(false);
 
-  for (const linea of lineas) {
-    const [codigo, nombre, cantidadStr, costoStr, precioStr, fecha] = linea.split(',').map((e) => e.trim());
-    if (!codigo || !nombre || !cantidadStr || !fecha) continue;
+  const enviarInventario = async () => {
+    const lineas = texto.split('\n').filter((linea) => linea.trim() !== '');
+    const mensajes: string[] = [];
+    setResultados([]);
+    setProgreso(0);
+    setCargando(true);
 
-    const cantidad = parseInt(cantidadStr);
-    const costo = parseFloat(costoStr);
-    const precio = parseFloat(precioStr);
+    for (let i = 0; i < lineas.length; i++) {
+      const linea = lineas[i];
+      const [codigo, nombre, cantidadStr, costoStr, precioStr, fecha] = linea.split(',').map((e) => e.trim());
+      if (!codigo || !nombre || !cantidadStr || !fecha) continue;
 
-    if (isNaN(cantidad)) continue;
+      const cantidad = parseInt(cantidadStr);
+      const costo = parseFloat(costoStr);
+      const precio = parseFloat(precioStr);
 
-    try {
-      const res = await api.post('/items', {
-        uuid: uuidv4(),
-        codigo,
-        nombre,
-        cantidad,
-        costo,
-        precio,
-        fecha,
-      });
+      if (isNaN(cantidad)) continue;
 
-      mensajes.push(`✅ ${res.data.nombre} → ${res.data._mensaje || 'Guardado correctamente'}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.error('Error al guardar:', err);
-      mensajes.push(`❌ ${nombre} → Error al guardar`);
+      try {
+        const res = await api.post('/items', {
+          uuid: uuidv4(),
+          codigo,
+          nombre,
+          cantidad,
+          costo,
+          precio,
+          fecha,
+        });
+
+        mensajes.push(`✅ ${res.data.nombre} → ${res.data._mensaje || 'Guardado correctamente'}`);
+      } catch (err: any) {
+        console.error('Error al guardar:', err);
+        mensajes.push(`❌ ${nombre} → Error al guardar`);
+      }
+
+      // 🔹 actualizar progreso
+      setProgreso(Math.round(((i + 1) / lineas.length) * 100));
     }
-  }
 
-  setResultados(mensajes);
-  setTexto('');
-};
-
+    setResultados(mensajes);
+    setTexto('');
+    setCargando(false);
+  };
 
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,13 +66,15 @@ const enviarInventario = async () => {
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parsedData: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
       const mensajes: string[] = [];
+      setResultados([]);
+      setProgreso(0);
+      setCargando(true);
 
-      for (const row of parsedData) {
+      for (let i = 0; i < parsedData.length; i++) {
+        const row = parsedData[i];
         const codigo = row['codigo'] || row['Codigo'] || '';
         const nombre = row['nombre'] || row['Nombre'];
         const cantidad = parseInt(row['cantidad'] || row['Cantidad']);
@@ -71,10 +82,10 @@ const enviarInventario = async () => {
         const precio = parseInt(row['precio'] || row['Precio']);
         const fecha = row['fecha'] || row['Fecha'];
 
-      if (!nombre || !fecha || isNaN(cantidad)) {
-        mensajes.push(`⚠️ Fila incompleta o malformada: ${JSON.stringify(row)}`);
-        continue;
-      }
+        if (!nombre || !fecha || isNaN(cantidad)) {
+          mensajes.push(`⚠️ Fila incompleta o malformada: ${JSON.stringify(row)}`);
+          continue;
+        }
 
         try {
           const res = await api.post('/items', {
@@ -88,14 +99,17 @@ const enviarInventario = async () => {
           });
 
           mensajes.push(`✅ ${res.data.nombre} → ${res.data._mensaje || 'Guardado correctamente'}`);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
           console.error('Error al guardar:', err);
           mensajes.push(`❌ ${nombre} → Error al guardar`);
         }
+
+        // 🔹 actualizar progreso
+        setProgreso(Math.round(((i + 1) / parsedData.length) * 100));
       }
 
       setResultados(mensajes);
+      setCargando(false);
     };
 
     reader.readAsArrayBuffer(file);
@@ -119,7 +133,29 @@ const enviarInventario = async () => {
         onChange={(e) => setTexto(e.target.value)}
       />
       <br />
-      <button onClick={enviarInventario}>Guardar</button>
+      <button onClick={enviarInventario} disabled={cargando}>
+        {cargando ? 'Procesando...' : 'Guardar'}
+      </button>
+
+      {/* 🔹 Barra de progreso */}
+      {cargando && (
+        <div style={{ marginTop: 20, width: '100%', background: '#eee', borderRadius: 8 }}>
+          <div
+            style={{
+              width: `${progreso}%`,
+              background: '#4caf50',
+              height: 20,
+              borderRadius: 8,
+              transition: 'width 0.3s ease',
+              textAlign: 'center',
+              color: 'white',
+              fontSize: 12,
+            }}
+          >
+            {progreso}%
+          </div>
+        </div>
+      )}
 
       {resultados.length > 0 && (
         <div style={{ marginTop: 20 }}>

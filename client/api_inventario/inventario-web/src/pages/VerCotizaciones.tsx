@@ -28,7 +28,8 @@ interface Cotizacion {
   rutCliente?:number;
   giroCliente?:string;
   emailCliente?:string;
-
+  formaPago?:string;
+  nota?:string;
 
   productos?: {
     nombre: string;
@@ -57,23 +58,23 @@ export default function VerCotizaciones() {
 
     cargar();
   }, []);
+const convertirCotizacion = async (cotizacion: Cotizacion) => {
+  try {
+    const confirmar = window.confirm('¿Convertir esta cotización en nota de venta?');
+    if (!confirmar) return;
 
-  const convertirCotizacion = async (cotizacion: Cotizacion) => {
-    try {
-      const confirmar = window.confirm('¿Convertir esta cotización en nota de venta?');
-      if (!confirmar) return;
-      
     // ✅ Usar precios y cantidades actuales del frontend
     const productosActualizados = cotizacion.productos?.map(p => ({
       ...p,
       total: (p.precio || 0) * (p.cantidad || 0)
     }));
 
-
-      const res = await api.post(
+    const res = await api.post(
       `/cotizaciones/${cotizacion._id}/convertir-a-nota`,
       { productos: productosActualizados }
     );
+
+
       const nuevaNota = res.data;
 
       const pdfBlob = generarGuiaPDF(nuevaNota.cliente, nuevaNota.productos, {
@@ -89,6 +90,8 @@ export default function VerCotizaciones() {
         direccionCliente: nuevaNota.direccionCliente,
         comunaCliente: nuevaNota.comunaCliente,
         ciudadCliente: nuevaNota.ciudadCliente,
+          formaPago: nuevaNota.formaPago,  
+          nota:nuevaNota.nota,  
         atencion: nuevaNota.atencion,
         emailCliente: nuevaNota.emailCliente,
         telefonoCliente: nuevaNota.telefonoCliente,

@@ -1,228 +1,200 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/api";
-import { generarGuiaPDF } from "../utils/pdf";
+// src/pages/EditarBorrador.tsx
+import { useState, useEffect } from 'react';
+import { FileText } from 'lucide-react';
+import api from '../api/api';
+import type { Item } from '../types/Item';
+import { generarGuiaPDF } from '../utils/pdf';
+import { useParams, useNavigate } from 'react-router-dom';
 
-
-interface Producto {
-  id: string;
-  nombre?: string;
-  itemName?: string;
-  cantidad: number;
-  precio: number;
-}
-
-type ProductoPDF = Producto & { total: number };
+import BuscadorProductos from '../components/BuscadorProductos';
+import FormularioCliente from '../components/FormularioCliente';
+import AccionesCotizacion from '../components/AccionesCotizacion';
+import ResumenTablaProductos from '../components/ResumenTablaProductos';
 
 export default function EditarBorrador() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [cliente, setCliente] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [fechaEntrega, setFechaEntrega] = useState("");
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [metodoPago, setMetodoPago] = useState("");
-  const [tipoDocumento] = useState("cotizacion");
-  const [rutCliente, setRutCliente] = useState("");
-  const [giroCliente, setGiroCliente] = useState("");
-  const [direccionCliente, setDireccionCliente] = useState("");
-  const [comunaCliente, setComunaCliente] = useState("");
-  const [ciudadCliente, setCiudadCliente] = useState("");
-  const [atencion, setAtencion] = useState("");
-  const [emailCliente, setEmailCliente] = useState("");
-  const [telefonoCliente, setTelefonoCliente] = useState("");
+  // estados (idénticos a Cotizaciones.tsx)
+  const [cliente, setCliente] = useState('');
+  const [rutCliente, setRutCliente] = useState('');
+  const [direccion, setDireccion] = useState('');
+  const [fechaEntrega, setFechaEntrega] = useState('');
+  const [metodoPago, setMetodoPago] = useState('efectivo');
+  const [tipo] = useState<'cotizacion'>('cotizacion'); // fijo en cotizacion
+  const [correlativo, setCorrelativo] = useState<number | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
+  const [busqueda, setBusqueda] = useState('');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [precios, setPrecios] = useState<Record<string, number>>({});
+  const [giroCliente, setGiroCliente] = useState('');
+  const [direccionCliente, setDireccionCliente] = useState('');
+  const [comunaCliente, setComunaCliente] = useState('');
+  const [ciudadCliente, setCiudadCliente] = useState('Santiago');
+  const [atencion, setAtencion] = useState('');
+  const [emailCliente, setEmailCliente] = useState('');
+  const [telefonoCliente, setTelefonoCliente] = useState('');
+  const [productos, setProductos] = useState<any[]>([]);
+  const [preciosPersonalizados, setPreciosPersonalizados] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    const fetchBorrador = async () => {
-      try {
-        const res = await api.get(`/cotizaciones/borrador/${id}`);
-        const data = res.data;
+    if (!id) return;
+    api.get(`/cotizaciones/${id}`)
+      .then(res => {
+        const d = res.data;
+        setCliente(d.cliente || '');
+        setRutCliente(d.rutCliente || '');
+        setDireccion(d.direccion || '');
+        setDireccionCliente(d.direccionCliente || '');
+        setComunaCliente(d.comunaCliente || '');
+        setCiudadCliente(d.ciudadCliente || '');
+        setFechaEntrega(d.fechaEntrega || '');
+        setMetodoPago(d.metodoPago || 'efectivo');
+        setGiroCliente(d.giroCliente || '');
+        setAtencion(d.atencion || '');
+        setEmailCliente(d.emailCliente || '');
+        setTelefonoCliente(d.telefonoCliente || '');
 
-        setCliente(data.cliente);
-        setDireccion(data.direccion);
-        setFechaEntrega(data.fechaEntrega);
-        setMetodoPago(data.metodoPago);
-        setProductos(data.productos);
-        setRutCliente(data.rutCliente);
-        setGiroCliente(data.giroCliente);
-        setDireccionCliente(data.direccionCliente);
-        setComunaCliente(data.comunaCliente);
-        setCiudadCliente(data.ciudadCliente);
-        setAtencion(data.atencion);
-        setEmailCliente(data.emailCliente);
-        setTelefonoCliente(data.telefonoCliente);
-      } catch (err) {
-        console.error(err);
-        alert("❌ Error al cargar borrador");
-      }
-    };
+        const preciosIniciales: Record<string, number> = {};
+        const preciosPersIniciales: Record<string, number> = {};
+        const seleccionadosIniciales: Record<string, number> = {};
 
-    if (id) fetchBorrador();
+        (d.productos || []).forEach((p: any) => {
+          const idProd = p.itemId || p._id;
+          preciosIniciales[idProd] = p.precio || 0;
+          preciosPersIniciales[idProd] = p.precio || 0;
+          seleccionadosIniciales[idProd] = p.cantidad || 1;
+        });
+
+        setProductos(d.productos || []);
+        setPrecios(preciosIniciales);
+        setPreciosPersonalizados(preciosPersIniciales);
+        setSelectedItems(seleccionadosIniciales);
+      })
+      .catch(err => console.error("Error cargando borrador:", err));
   }, [id]);
 
-  const actualizarProducto = (
-    index: number,
-    campo: keyof Producto,
-    valor: string | number
-  ) => {
-    const nuevos = [...productos];
-    if (campo === "cantidad" || campo === "precio") {
-      nuevos[index][campo] = Number(valor);
-    } else {
-      // @ts-ignore
-      nuevos[index][campo] = valor;
-    }
-    setProductos(nuevos);
-  };
+  useEffect(() => {
+    api.get('/items').then(res => setItems(res.data)).catch(console.error);
+  }, []);
 
-  const eliminarProducto = (index: number) => {
-    const nuevos = productos.filter((_, i) => i !== index);
-    setProductos(nuevos);
-  };
-
-  // Función para generar PDF que adapta Producto[] a ProductoPDF[]
-  const generarPDFConTotales = () => {
-    const productosPDF: ProductoPDF[] = productos.map((p) => ({
-      ...p,
-      total: p.cantidad * p.precio,
-    }));
-
-    return generarGuiaPDF(cliente, productosPDF, {
-      fechaEntrega,
-      metodoPago,
-      tipoDocumento,
-      rutCliente,
-      numeroDocumento: "", // Este dato lo llenarás después
-      giroCliente,
-      direccionCliente,
-      comunaCliente,
-      ciudadCliente,
-      atencion,
-      emailCliente,
-      telefonoCliente,
-      tipo: "cotizacion",
-      direccion,
+  const eliminarProducto = (id: string) => {
+    setSelectedItems(prev => {
+      const copia = { ...prev };
+      delete copia[id];
+      return copia;
     });
   };
 
-  const guardarComoCotizacion = async () => {
+  const handlePrecioChange = (id: string, nuevoPrecio: number) => {
+    setPreciosPersonalizados(prev => ({ ...prev, [id]: nuevoPrecio }));
+  };
+
+  const handleCantidadChange = (id: string, cantidad: number) => {
+    setSelectedItems(prev => {
+      const copia = { ...prev, [id]: cantidad };
+      if (cantidad <= 0) delete copia[id];
+      return copia;
+    });
+  };
+
+  const calcularResumen = () => {
+    const seleccionados = Object.entries(selectedItems).map(([id, cantidad]) => {
+      const i = items.find(it => it._id === id);
+      const precio = preciosPersonalizados[id] ?? (i?.precio ?? 0);
+      return {
+        id,
+        nombre: i?.nombre ?? '[Eliminado]',
+        cantidad,
+        precio,
+        total: precio * cantidad,
+      };
+    });
+    const subtotal = seleccionados.reduce((a, p) => a + p.total, 0);
+    const iva = subtotal * 0.19;
+    return { seleccionados, subtotal, iva, total: subtotal + iva };
+  };
+
+  const actualizarBorrador = async () => {
+    const { seleccionados } = calcularResumen();
     try {
-      if (!id) {
-        alert("ID de borrador no encontrado");
-        return;
-      }
-
-      // Llamamos a la ruta para convertir borrador a cotización
-      const res = await api.post(`/cotizaciones/desde-borrador/${id}`);
-
-      // Generamos el PDF con el número asignado en la respuesta
-      const pdfBlob = generarPDFConTotales();
-
-      // Subimos el PDF generado
-      const fd = new FormData();
-      fd.append("file", new File([pdfBlob], "doc.pdf", { type: "application/pdf" }));
-      fd.append("cotizacionId", res.data._id);
-      await api.post("/cotizaciones/upload-pdf", fd);
-
-      alert("✅ Cotización creada desde borrador");
-      navigate("/ver-cotizaciones");
+      const res = await api.put(`/cotizaciones/${id}`, {
+        cliente, direccion, rutCliente, giroCliente, direccionCliente,
+        comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
+        fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago,
+        tipo: 'cotizacion', estado: 'borrador',
+        productos: seleccionados.map(p => ({
+          itemId: p.id, cantidad: p.cantidad,
+          precio: preciosPersonalizados[p.id] ?? p.precio,
+        })),
+      });
+      setCorrelativo(res.data.numero);
+      alert('✅ Borrador actualizado');
+      navigate('/cotizaciones');
     } catch (err) {
       console.error(err);
-      alert("❌ Error al guardar cotización");
+      alert('❌ Error al actualizar borrador');
     }
   };
 
+  const { seleccionados, subtotal, iva, total } = calcularResumen();
+
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-bold mb-4">Editar borrador</h1>
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
+        <FileText className="w-6 h-6 text-blue-600" />
+        EDITAR BORRADOR
+      </h1>
 
-      {/* Datos generales */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <input
-          value={cliente}
-          onChange={(e) => setCliente(e.target.value)}
-          placeholder="Cliente"
-          className="border p-2"
-        />
-        <input
-          value={direccion}
-          onChange={(e) => setDireccion(e.target.value)}
-          placeholder="Dirección"
-          className="border p-2"
-        />
-        <input
-          value={fechaEntrega}
-          onChange={(e) => setFechaEntrega(e.target.value)}
-          type="date"
-          className="border p-2"
-        />
-        <input
-          value={metodoPago}
-          onChange={(e) => setMetodoPago(e.target.value)}
-          placeholder="Método de pago"
-          className="border p-2"
-        />
-      </div>
+      <AccionesCotizacion
+        onGuardarBorrador={actualizarBorrador}
+        onConfirmar={actualizarBorrador}
+        enviando={enviando}
+        pdfUrl={pdfUrl}
+        correlativo={correlativo}
+        tipo={tipo}
+      />
 
-      {/* Tabla de productos */}
-      <table className="table-auto w-full border mb-4">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="border px-2 py-1">Producto</th>
-            <th className="border px-2 py-1">Cantidad</th>
-            <th className="border px-2 py-1">Precio</th>
-            <th className="border px-2 py-1">Subtotal</th>
-            <th className="border px-2 py-1">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {productos.map((p, i) => (
-            <tr key={i}>
-              <td className="border px-2 py-1">{p.nombre || p.itemName}</td>
-              <td className="border px-2 py-1">
-                <input
-                  type="number"
-                  value={p.cantidad}
-                  onChange={(e) =>
-                    actualizarProducto(i, "cantidad", parseInt(e.target.value))
-                  }
-                  className="border p-1 w-20"
-                />
-              </td>
-              <td className="border px-2 py-1">
-                <input
-                  type="number"
-                  value={p.precio}
-                  onChange={(e) =>
-                    actualizarProducto(i, "precio", parseFloat(e.target.value))
-                  }
-                  className="border p-1 w-24"
-                />
-              </td>
-              <td className="border px-2 py-1">
-                ${(p.cantidad * p.precio).toLocaleString()}
-              </td>
-              <td className="border px-2 py-1 text-center">
-                <button
-                  onClick={() => eliminarProducto(i)}
-                  className="bg-red-500 text-white px-2 py-1 rounded"
-                >
-                  X
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <FormularioCliente
+        cliente={cliente} setCliente={setCliente}
+        rutCliente={rutCliente} setRutCliente={setRutCliente}
+        direccion={direccion} setDireccion={setDireccion}
+        fechaEntrega={fechaEntrega} setFechaEntrega={setFechaEntrega}
+        disableTipo={true} // 👈 siempre fijo
+        metodoPago={metodoPago} setMetodoPago={setMetodoPago}
+        tipo={tipo} setTipo={() => {}} // bloqueado
+        giroCliente={giroCliente} setGiroCliente={setGiroCliente}
+        direccionCliente={direccionCliente} setDireccionCliente={setDireccionCliente}
+        comunaCliente={comunaCliente} setComunaCliente={setComunaCliente}
+        ciudadCliente={ciudadCliente} setCiudadCliente={setCiudadCliente}
+        atencion={atencion} setAtencion={setAtencion}
+        emailCliente={emailCliente} setEmailCliente={setEmailCliente}
+        telefonoCliente={telefonoCliente} setTelefonoCliente={setTelefonoCliente}
+      />
 
-      {/* Botón para guardar */}
-      <button
-        onClick={guardarComoCotizacion}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        Guardar como Cotización
-      </button>
+      <BuscadorProductos
+        busqueda={busqueda}
+        setBusqueda={setBusqueda}
+        onAgregar={(item) => {
+          setSelectedItems(prev => ({
+            ...prev,
+            [item._id]: (prev[item._id] || 0) + 1
+          }));
+        }}
+      />
+
+      <ResumenTablaProductos
+        seleccionados={seleccionados}
+        subtotal={subtotal}
+        iva={iva}
+        total={total}
+        onCantidadChange={handleCantidadChange}
+        onEliminar={eliminarProducto}
+        onPrecioChange={handlePrecioChange}
+      />
     </div>
   );
 }

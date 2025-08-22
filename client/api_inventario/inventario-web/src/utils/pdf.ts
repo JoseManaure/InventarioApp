@@ -28,6 +28,8 @@ export function generarGuiaPDF(
     atencion?: string;
     emailCliente?: string;
     telefonoCliente?: string;
+    formaPago?:string;
+      nota?:string;
   }
 ) {
   const doc = new jsPDF();
@@ -71,17 +73,17 @@ export function generarGuiaPDF(
     ['Cliente:', cliente],
     ['RUT:', extras.rutCliente || '__________________'],
     ['Giro:', extras.giroCliente || '__________________'],
-    ['Dirección:', extras.direccionCliente || '__________________'],
-    ['Comuna:', extras.comunaCliente || '__________________'],
-    ['Ciudad:', extras.ciudadCliente || 'Santiago'],
+    ['Dirección:', extras.direccion || '__________________'],
+    ['Cel.:', extras.telefonoCliente || ''],
+    ['Mail:', extras.emailCliente || '__________________'],
   ];
 
   const datosDerecha = [
     ['At. Sr.:', extras.atencion || '__________________'],
     ['Válida:', '3 días'],
-    ['Mail:', extras.emailCliente || '__________________'],
-    ['Entrega:', extras.direccion || '__________________'],
-    ['Cel.:', extras.telefonoCliente || ''],
+    ['Direccion:', extras.direccionCliente || '__________________'],
+    ['Comuna:', extras.comunaCliente || '__________________'],
+    ['Ciudad:', extras.ciudadCliente || 'Santiago'],
     ['Entrega:', extras.fechaEntrega || 'Por definir'],
     ['Pago:', extras.metodoPago || 'Contado'],
   ];
@@ -105,66 +107,81 @@ export function generarGuiaPDF(
   }
 
   // Tabla productos con mejor estilo
-  autoTable(doc, {
-    startY: yCliente + 5,
-    head: [['Item', 'Cant.', 'Descripción', 'Valor Unit.', 'Total']],
-    body: productos.map((p, i) => [
-      `${i + 1}°`,
-      p.cantidad,
-      p.nombre,
-      `$${p.precio.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
-      `$${p.total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
-    ]),
-    styles: { 
-      fontSize: 9, 
-      halign: 'center',
-      textColor: [40, 40, 40]
-    },
-    headStyles: { 
-      fillColor: [0, 102, 204], 
-      textColor: [255, 255, 255], 
-      fontStyle: 'bold'
-    },
-    alternateRowStyles: { 
-      fillColor: [235, 245, 255]
-    },
-    columnStyles: {
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-    },
-  });
+autoTable(doc, {
+  startY: yCliente + 5,
+  head: [['Item', 'Cant.', 'Descripción', 'Valor Unit.', 'Total']],
+  body: productos.map((p, i) => [
+    `${i + 1}°`,
+    p.cantidad,
+    p.nombre,
+    `$${p.precio.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
+    `$${p.total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
+  ]),
+  styles: { 
+    fontSize: 9, 
+    halign: 'center',
+    textColor: [40, 40, 40]
+  },
+  headStyles: { 
+    fillColor: [0, 102, 204], 
+    textColor: [255, 255, 255], 
+    fontStyle: 'bold'
+  },
+  alternateRowStyles: { 
+    fillColor: [235, 245, 255]
+  },
+  columnStyles: {
+    3: { halign: 'right' },
+    4: { halign: 'right' },
+  },
+});
 
-  // @ts-ignore
-  const finalY: number = doc.lastAutoTable?.finalY || yCliente + 50;
 
-  const subtotal = productos.reduce((acc, p) => acc + p.total, 0);
-  const iva = Math.round(subtotal * 0.19);
-  const total = Math.round(subtotal + iva);
 
-  // Totales sin decimales
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Neto.', 155, finalY + 10);
-  doc.text(`$${subtotal.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`, 180, finalY + 10, { align: 'right' });
+// Cálculo totales
+const subtotal = productos.reduce((acc, p) => acc + p.total, 0);
+const iva = Math.round(subtotal * 0.19);
+const total = Math.round(subtotal + iva);
 
-  doc.text('IVA.', 155, finalY + 16);
-  doc.text(`$${iva.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`, 180, finalY + 16, { align: 'right' });
+// 👉 Resumen (Neto, IVA, Total)
+autoTable(doc, {
+  startY: doc.lastAutoTable.finalY + 10,
+  body: [
+    ['Neto', `$${subtotal.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
+    ['IVA (19%)', `$${iva.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
+    ['Total', `$${total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`]
+  ],
+  styles: { fontSize: 10, textColor: [40, 40, 40] },
+  columnStyles: {
+    0: { halign: 'right', cellPadding: { right: 15 } },
+    1: { halign: 'right', cellWidth: 50 },
+  },
+  theme: 'plain',
+  didParseCell: (data) => {
+    if (data.row.index === 2) { // Total
+      data.cell.styles.fontStyle = 'bold';
+      data.cell.styles.textColor = [0, 100, 0];
+    }
+  },
+});
 
-  doc.text('Total.', 155, finalY + 22);
-  doc.text(`$${total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`, 180, finalY + 22, { align: 'right' });
+// @ts-ignore
+const finalY: number = doc.lastAutoTable?.finalY || yCliente + 50;
 
-  // Forma de pago y nota
-  let yNotas = finalY + 35;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Forma de Pago:', 10, yNotas);
-  doc.setFont('helvetica', 'normal');
-  doc.text('65% Al inicio y 35% al momento de la entrega.', 50, yNotas);
 
-  yNotas += 6;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Nota:', 10, yNotas);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Esta cotización es aceptada después de cancelado el 65%.', 50, yNotas);
+// Forma de pago y nota
+let yNotas = finalY + 35;
+doc.setFont('helvetica', 'bold');
+doc.text('Forma de Pago:', 10, yNotas);
+doc.setFont('helvetica', 'normal');
+doc.text(extras.formaPago || '__________________', 50, yNotas);
+
+yNotas += 6;
+doc.setFont('helvetica', 'bold');
+doc.text('Nota:', 10, yNotas);
+doc.setFont('helvetica', 'normal');
+doc.text(extras.nota || '__________________', 50, yNotas);
+
 
   // Transferencia
   yNotas += 10;

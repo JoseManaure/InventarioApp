@@ -31,24 +31,35 @@ const ResumenTablaProductos = memo(
     onPrecioChange,
   }: Props) => {
     const handleCantidadChange = useCallback(
-      (id: string, value: string) => {
-        const cantidad = parseInt(value, 10);
-        if (!isNaN(cantidad) && cantidad > 0) {
-          onCantidadChange(id, cantidad);
-        }
-      },
-      [onCantidadChange]
-    );
+  (id: string, value: string) => {
+    if (value === "") {
+      onCantidadChange(id, 0); // guardamos 0 pero mostramos ""
+      return;
+    }
 
-    const handlePrecioChange = useCallback(
-      (id: string, value: string) => {
-        const precio = parseFloat(value);
-        if (!isNaN(precio) && precio >= 0) {
-          onPrecioChange(id, precio);
-        }
-      },
-      [onPrecioChange]
-    );
+    const cantidad = parseInt(value, 10);
+    if (!isNaN(cantidad) && cantidad >= 0) {
+      onCantidadChange(id, cantidad);
+    }
+  },
+  [onCantidadChange]
+);
+
+const handlePrecioChange = useCallback(
+  (id: string, value: string) => {
+    if (value === "") {
+      onPrecioChange(id, 0); // guardamos 0 pero mostramos ""
+      return;
+    }
+
+    const precio = parseFloat(value);
+    if (!isNaN(precio) && precio >= 0) {
+      onPrecioChange(id, precio);
+    }
+  },
+  [onPrecioChange]
+);
+
 
     return (
       <div className="overflow-x-auto">
@@ -72,8 +83,8 @@ const ResumenTablaProductos = memo(
                 <td className="px-4 py-2">
                   <input
                     type="number"
-                    min={1}
-                    value={p.cantidad}
+                    min={0}
+                  value={p.cantidad === 0 ? "" : p.cantidad}   // 👈 mostrar vacío si es 0
                     onChange={(e) =>
                       handleCantidadChange(p.id, e.target.value)
                     }
@@ -86,7 +97,7 @@ const ResumenTablaProductos = memo(
                     type="number"
                     min={0}
                     step="0.01"
-                    value={p.precio}
+                      value={p.precio === 0 ? "" : p.precio} 
                     onChange={(e) =>
                       handlePrecioChange(p.id, e.target.value)
                     }

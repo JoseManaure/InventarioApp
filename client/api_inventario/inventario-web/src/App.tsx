@@ -2,6 +2,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import type { User } from './types/User';
+import Dashboard from "./pages/Dashboard";
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Inventario from './pages/Inventario';
@@ -12,9 +13,10 @@ import Productos from './pages/Productos';
 import NotasDeVenta from './pages/NotasDeVentas';
 import VerCotizaciones from './pages/VerCotizaciones';
 import VistaCotizacion from './pages/VistaCotizacion';
-import ComparadorPrecios from './pages/ComparadorPrecios';
+import ComparadorPrecios from './pages/CompararPrecios';
 import VerBorradores from './pages/VerBorradores';
 import EditarBorrador from './pages/EditarBorrador';
+import DashboardVentas from './pages/DashboardVentas';
 
 import api, { setAuthToken } from './api/api';
 
@@ -40,10 +42,12 @@ function App() {
   return (
    <Routes>
   <Route path="/" element={<Layout />}>
+  <Route path="/dashboard" element={<Dashboard />} />
     <Route path="inventario" element={<Inventario />} />
     <Route path="cotizaciones" element={<Cotizaciones />} />
     <Route path="ver-borradores" element={<VerBorradores />} />
     
+<Route path="/dashboard-ventas" element={<DashboardVentas />} />
 
     {/* Ruta para editar borrador */}
     <Route path="/borrador/:id" element={<EditarBorrador />} />
@@ -59,7 +63,7 @@ function App() {
     <Route path="facturas/nueva" element={<FacturaCompra />} />
     <Route path="productos" element={<Productos />} />
     <Route path="notas" element={<NotasDeVenta />} />
-    <Route path="comparador" element={<ComparadorPrecios />} />
+    <Route path="comparador" element={<ComparadorPrecios/>} />
     <Route path="comparar" element={<ComparadorPrecios />} />
   </Route>
 </Routes>
