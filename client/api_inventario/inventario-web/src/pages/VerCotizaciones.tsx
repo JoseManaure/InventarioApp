@@ -14,6 +14,14 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { generarGuiaPDF } from '../utils/pdf';
 
+interface Producto {
+  itemId: string; // ahora siempre el ID
+  nombre: string;
+  cantidad: number;
+  precio: number;
+  total: number;
+}
+
 interface Cotizacion {
   total: number;
   _id: string;
@@ -25,19 +33,13 @@ interface Cotizacion {
   tipo: 'cotizacion' | 'nota';
   pdfUrl?: string;
   numero?: number;
-  rutCliente?:number;
-  giroCliente?:string;
-  emailCliente?:string;
-  formaPago?:string;
-  nota?:string;
-
-  productos?: {
-    nombre: string;
-    cantidad: number;
-    precio: number;
-    total: number;
-  }[];
-  yaConvertida?: boolean; // ← NUEVO
+  rutCliente?: number;
+  giroCliente?: string;
+  emailCliente?: string;
+  formaPago?: string;
+  nota?: string;
+  productos?: Producto[];
+  yaConvertida?: boolean;
 }
 
 export default function VerCotizaciones() {
@@ -48,8 +50,7 @@ export default function VerCotizaciones() {
     const cargar = async () => {
       try {
         const res = await api.get('/cotizaciones');
-        const soloCotizaciones = res.data
-          .filter((c: Cotizacion) => c.tipo === 'cotizacion');
+        const soloCotizaciones = res.data.filter((c: Cotizacion) => c.tipo === 'cotizacion');
         setCotizaciones(soloCotizaciones);
       } catch (err) {
         console.error('Error al cargar cotizaciones', err);
@@ -58,22 +59,25 @@ export default function VerCotizaciones() {
 
     cargar();
   }, []);
-const convertirCotizacion = async (cotizacion: Cotizacion) => {
-  try {
-    const confirmar = window.confirm('¿Convertir esta cotización en nota de venta?');
-    if (!confirmar) return;
 
-    // ✅ Usar precios y cantidades actuales del frontend
-    const productosActualizados = cotizacion.productos?.map(p => ({
-      ...p,
-      total: (p.precio || 0) * (p.cantidad || 0)
-    }));
+  const convertirCotizacion = async (cotizacion: Cotizacion) => {
+    try {
+      const confirmar = window.confirm('¿Convertir esta cotización en nota de venta?');
+      if (!confirmar) return;
 
-    const res = await api.post(
-      `/cotizaciones/${cotizacion._id}/convertir-a-nota`,
-      { productos: productosActualizados }
-    );
+      // ✅ Transformar productos para enviar solo itemId
+      const productosActualizados = cotizacion.productos?.map((p) => ({
+        itemId: typeof p.itemId === 'object' && p.itemId !== null ? (p.itemId as any)._id : p.itemId,
+        nombre: p.nombre,
+        cantidad: Number(p.cantidad || 0),
+        precio: Number(p.precio || 0),
+        total: Number(p.cantidad || 0) * Number(p.precio || 0),
+      }));
 
+      const res = await api.post(
+        `/cotizaciones/${cotizacion._id}/convertir-a-nota`,
+        { productos: productosActualizados }
+      );
 
       const nuevaNota = res.data;
 
@@ -90,8 +94,8 @@ const convertirCotizacion = async (cotizacion: Cotizacion) => {
         direccionCliente: nuevaNota.direccionCliente,
         comunaCliente: nuevaNota.comunaCliente,
         ciudadCliente: nuevaNota.ciudadCliente,
-          formaPago: nuevaNota.formaPago,  
-          nota:nuevaNota.nota,  
+        formaPago: nuevaNota.formaPago,
+        nota: nuevaNota.nota,
         atencion: nuevaNota.atencion,
         emailCliente: nuevaNota.emailCliente,
         telefonoCliente: nuevaNota.telefonoCliente,
@@ -116,78 +120,75 @@ const convertirCotizacion = async (cotizacion: Cotizacion) => {
     <div className="p-6">
       <h2 className="text-2xl font-semibold mb-4">Cotizaciones Generadas</h2>
 
-   <table className="w-full text-sm shadow-md rounded-lg overflow-hidden border border-gray-200">
-  <thead>
-    <tr>
-      <th className="bg-green-100 text-left px-4 py-2">
-        <div className="flex items-center gap-2"><User size={16} /> Cliente</div>
-      </th>
-      <th className="bg-blue-100 text-left px-4 py-2">
-        <div className="flex items-center gap-2"><MapPin size={16} /> Dirección</div>
-      </th>
-      <th className="bg-yellow-100 text-left px-4 py-2">
-        <div className="flex items-center gap-2"><CalendarDays size={16} /> Fecha Entrega</div>
-      </th>
-      <th className="bg-purple-100 text-left px-4 py-2">
-        <div className="flex items-center gap-2"><CreditCard size={16} /> Pago</div>
-      </th>
-      <th className="bg-pink-100 text-left px-4 py-2">
-        <div className="flex items-center gap-2"><DollarSign size={16} /> Total</div>
-      </th>
-      <th className="bg-gray-200 text-left px-4 py-2">
-        <div className="flex items-center gap-2"><FileText size={16} /> Acciones</div>
-      </th>
-    </tr>
-  </thead>
-  <tbody>
-    {cotizaciones.map((cot) => (
-      <tr key={cot._id} className="hover:bg-gray-50">
-        <td className="bg-green-50 px-4 py-2">{cot.cliente}</td>
-        <td className="bg-blue-50 px-4 py-2">{cot.direccion}</td>
-        <td className="bg-yellow-50 px-4 py-2">{cot.fechaEntrega}</td>
-        <td className="bg-purple-50 px-4 py-2">{cot.metodoPago}</td>
-        <td className="bg-pink-50 px-4 py-2">
-  ${(
-    cot.productos?.reduce((acc, p) => acc + (p.precio || 0) * (p.cantidad || 0), 0) || 0
-  ).toLocaleString('es-CL')}
-</td>
-        <td className="bg-gray-50 px-4 py-2 space-y-1">
-          {cot.pdfUrl && (
-            <a
-              href={`http://localhost:3000${cot.pdfUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline flex items-center gap-1"
-            >
-              <FileText size={14} /> PDF
-            </a>
-          )}
+      <table className="w-full text-sm shadow-md rounded-lg overflow-hidden border border-gray-200">
+        <thead>
+          <tr>
+            <th className="bg-green-100 text-left px-4 py-2">
+              <div className="flex items-center gap-2"><User size={16} /> Cliente</div>
+            </th>
+            <th className="bg-blue-100 text-left px-4 py-2">
+              <div className="flex items-center gap-2"><MapPin size={16} /> Dirección</div>
+            </th>
+            <th className="bg-yellow-100 text-left px-4 py-2">
+              <div className="flex items-center gap-2"><CalendarDays size={16} /> Fecha Entrega</div>
+            </th>
+            <th className="bg-purple-100 text-left px-4 py-2">
+              <div className="flex items-center gap-2"><CreditCard size={16} /> Pago</div>
+            </th>
+            <th className="bg-pink-100 text-left px-4 py-2">
+              <div className="flex items-center gap-2"><DollarSign size={16} /> Total</div>
+            </th>
+            <th className="bg-gray-200 text-left px-4 py-2">
+              <div className="flex items-center gap-2"><FileText size={16} /> Acciones</div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {cotizaciones.map((cot) => (
+            <tr key={cot._id} className="hover:bg-gray-50">
+              <td className="bg-green-50 px-4 py-2">{cot.cliente}</td>
+              <td className="bg-blue-50 px-4 py-2">{cot.direccion}</td>
+              <td className="bg-yellow-50 px-4 py-2">{cot.fechaEntrega}</td>
+              <td className="bg-purple-50 px-4 py-2">{cot.metodoPago}</td>
+              <td className="bg-pink-50 px-4 py-2">
+                ${(
+                  cot.productos?.reduce((acc, p) => acc + p.precio * p.cantidad, 0) || 0
+                ).toLocaleString('es-CL')}
+              </td>
+              <td className="bg-gray-50 px-4 py-2 space-y-1">
+                {cot.pdfUrl && (
+                  <a
+                    href={`http://localhost:3000${cot.pdfUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline flex items-center gap-1"
+                  >
+                    <FileText size={14} /> PDF
+                  </a>
+                )}
 
-          <button
-            onClick={() => convertirCotizacion(cot)}
-            disabled={cot.yaConvertida}
-            className={`w-full px-3 py-1 text-sm text-white rounded flex items-center justify-center gap-1 ${
-              cot.yaConvertida ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            <FileText size={14} />
-            {cot.yaConvertida ? 'Ya convertida' : ' a Nota'}
-          </button>
+                <button
+                  onClick={() => convertirCotizacion(cot)}
+                  disabled={cot.yaConvertida}
+                  className={`w-full px-3 py-1 text-sm text-white rounded flex items-center justify-center gap-1 ${
+                    cot.yaConvertida ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  <FileText size={14} />
+                  {cot.yaConvertida ? 'Ya convertida' : ' a Nota'}
+                </button>
 
-          <button
-            onClick={() => navigate(`/cotizaciones/${cot._id}`)}
-            className="w-full px-3 py-1 text-sm text-white bg-green-600 hover:bg-green-700 rounded flex items-center justify-center gap-1"
-          >
-            <Pencil size={14} /> Editar
-          </button>
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
-
-
-
+                <button
+                  onClick={() => navigate(`/cotizaciones/${cot._id}`)}
+                  className="w-full px-3 py-1 text-sm text-white bg-green-600 hover:bg-green-700 rounded flex items-center justify-center gap-1"
+                >
+                  <Pencil size={14} /> Editar
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -1,49 +1,65 @@
+// server/routes/facturas.js
 const express = require('express');
-const router = express.Router();
 const Factura = require('../models/Factura');
-const Item = require('../models/Item');
+const router = express.Router();
 
-// POST: Crear factura y agregar al inventario
-router.post('/', async (req, res) => {
-  try {
-    const { nombreEmpresa, rut, rol, direccion, fechaCompra, productos,  numeroDocumento, tipoDocumento} = req.body;
-
-    const nuevaFactura = new Factura({ nombreEmpresa, rut, rol, direccion, fechaCompra, productos,  numeroDocumento,   // ✅ nuevo
-  tipoDocumento});
-    await nuevaFactura.save();
-
-    // Agregar productos al inventario
-    for (const producto of productos) {
-      const itemExistente = await Item.findOne({ nombre: producto.nombre });
-
-      if (itemExistente) {
-        itemExistente.cantidad += producto.cantidad;
-        await itemExistente.save();
-      } else {
-        await Item.create({
-          nombre: producto.nombre,
-          cantidad: producto.cantidad,
-          precio: producto.precioUnitario,
-          iva: producto.iva
-        });
-      }
-    }
-
-    res.status(201).json({ mensaje: 'Factura registrada y productos actualizados' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ mensaje: 'Error al registrar la factura' });
-  }
-});
-
-
-// Obtener todas las facturas
+// GET todas las facturas
 router.get('/', async (req, res) => {
   try {
     const facturas = await Factura.find();
     res.json(facturas);
   } catch (err) {
-    res.status(500).json({ error: 'Error al obtener facturas' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST nueva factura
+router.post('/', async (req, res) => {
+  try {
+    const factura = new Factura(req.body);
+    await factura.save();
+    res.status(201).json(factura);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
+// Crear factura
+router.post('/', async (req, res) => {
+  try {
+    const nueva = new Factura(req.body);
+    const guardada = await nueva.save();
+    res.status(201).json(guardada);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo crear la factura' });
+  }
+});
+
+
+// Obtener facturas con filtro por mes
+router.get('/', async (req, res) => {
+  try {
+    const { mes, pagina = 1, limite = 10 } = req.query;
+
+    const query = {};
+    if (mes) {
+      // mes = '2025-08'
+      const inicio = new Date(`${mes}-01T00:00:00.000Z`);
+      const fin = new Date(inicio);
+      fin.setMonth(fin.getMonth() + 1);
+      query.fechaCreacion = { $gte: inicio, $lt: fin };
+    }
+
+    const skip = (Number(pagina) - 1) * Number(limite);
+    const total = await Factura.countDocuments(query);
+    const facturas = await Factura.find(query).sort({ fechaCreacion: -1 }).skip(skip).limit(Number(limite));
+
+    res.json({ facturas, total });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo obtener facturas' });
   }
 });
 

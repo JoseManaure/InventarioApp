@@ -11,11 +11,18 @@ import FormularioCliente from '../components/FormularioCliente';
 import AccionesCotizacion from '../components/AccionesCotizacion';
 import ResumenTablaProductos from '../components/ResumenTablaProductos';
 
+interface ProductoResumen {
+  id: string;
+  nombre: string;
+  cantidad: number;
+  precio: number;
+  total: number;
+}
+
 export default function Cotizaciones() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Estados generales
   const [cliente, setCliente] = useState('');
   const [rutCliente, setRutCliente] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -24,19 +31,14 @@ export default function Cotizaciones() {
   const [tipo, setTipo] = useState<'cotizacion' | 'nota'>('cotizacion');
   const [correlativo, setCorrelativo] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
+  const [selectedItems, setSelectedItems] = useState<Record<string, { cantidad: number; nombre: string; precio: number }>>({});
   const [busqueda, setBusqueda] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [precios, setPrecios] = useState<Record<string, number>>({});
-  const [preciosPersonalizados, setPreciosPersonalizados] = useState<Record<string, number>>({});
-  const [productos, setProductos] = useState<any[]>([]);
 
-  // Campos adicionales
   const [formaPago, setFormaPago] = useState("65% Al inicio y 35% al momento de la entrega.");
   const [nota, setNota] = useState("Esta cotización es aceptada después de cancelado el 65%.");
-
   const [giroCliente, setGiroCliente] = useState('');
   const [direccionCliente, setDireccionCliente] = useState('');
   const [comunaCliente, setComunaCliente] = useState('');
@@ -45,15 +47,27 @@ export default function Cotizaciones() {
   const [emailCliente, setEmailCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
 
-  // Cargar items y cotización existente
   useEffect(() => {
-    api.get('/items').then(res => setItems(res.data)).catch(console.error);
+    let mounted = true;
 
-    if (!id) return;
+    const cargarItems = async () => {
+      try {
+        const res = await api.get('/items');
+        if (!mounted) return;
+        const data = Array.isArray(res.data) ? res.data : res.data.items || [];
+        setItems(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
-    api.get(`/cotizaciones/${id}`)
-      .then(res => {
+    const cargarCotizacion = async () => {
+      if (!id) return;
+      try {
+        const res = await api.get(`/cotizaciones/${id}`);
+        if (!mounted) return;
         const d = res.data;
+
         setCliente(d.cliente || '');
         setRutCliente(d.rutCliente || '');
         setDireccion(d.direccion || '');
@@ -70,127 +84,109 @@ export default function Cotizaciones() {
         setFormaPago(d.formaPago ?? "");
         setNota(d.nota ?? "");
 
-        const preciosIniciales: Record<string, number> = {};
-        const preciosPersIniciales: Record<string, number> = {};
-        const seleccionadosIniciales: Record<string, number> = {};
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const seleccionadosIniciales: Record<string, { cantidad: number; nombre: string; precio: number }> = {};
         (d.productos || []).forEach((p: any) => {
-          const idProd = p.itemId || p._id;
-          preciosIniciales[idProd] = p.precio || 0;
-          preciosPersIniciales[idProd] = p.precio || 0;
-          seleccionadosIniciales[idProd] = p.cantidad || 1;
+          const idProd = (p.itemId?._id || p.itemId || p._id).toString();
+          seleccionadosIniciales[idProd] = {
+            cantidad: p.cantidad || 1,
+            nombre: p.nombre || p.itemId?.nombre || '[Eliminado]',
+            precio: p.precio || p.itemId?.precio || 0
+          };
         });
-
-        setProductos(d.productos || []);
-        setPrecios(preciosIniciales);
-        setPreciosPersonalizados(preciosPersIniciales);
         setSelectedItems(seleccionadosIniciales);
-      })
-      .catch(console.error);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    cargarItems().then(() => cargarCotizacion());
+    return () => { mounted = false; }
   }, [id]);
-
-  const eliminarProducto = (id: string) => {
-    setSelectedItems(prev => {
-      const copia = { ...prev };
-      delete copia[id];
-      return copia;
-    });
-  };
-
-  const handlePrecioChange = (id: string, nuevoPrecio: number) => {
-    setPreciosPersonalizados(prev => ({ ...prev, [id]: nuevoPrecio }));
-  };
 
   const handleCantidadChange = (id: string, cantidad: number) => {
     setSelectedItems(prev => {
-      const copia = { ...prev, [id]: cantidad };
+      const copia = { ...prev };
       if (cantidad <= 0) delete copia[id];
+      else copia[id] = { ...copia[id], cantidad };
       return copia;
     });
   };
 
+  const handlePrecioChange = (id: string, precio: number) => {
+    setSelectedItems(prev => ({ ...prev, [id]: { ...prev[id], precio } }));
+  };
+
+  const eliminarProducto = (id: string) => {
+    setSelectedItems(prev => { const copia = { ...prev }; delete copia[id]; return copia; });
+  };
+
   const calcularResumen = () => {
-    const seleccionados = Object.entries(selectedItems).map(([id, cantidad]) => {
-      const i = items.find(it => it._id === id);
-      const precio = preciosPersonalizados[id] ?? (i?.precio ?? 0);
-      return {
-        id,
-        nombre: i?.nombre ?? '[Eliminado]',
-        cantidad,
-        precio,
-        total: precio * cantidad,
-      };
-    });
-    const subtotal = seleccionados.reduce((a, p) => a + p.total, 0);
+    const seleccionados: ProductoResumen[] = Object.entries(selectedItems).map(([id, data]) => ({
+      id,
+      nombre: data.nombre,
+      cantidad: data.cantidad,
+      precio: data.precio,
+      total: data.cantidad * data.precio
+    }));
+
+    const subtotal = seleccionados.reduce((acc, p) => acc + p.total, 0);
     const iva = subtotal * 0.19;
-    return { seleccionados, subtotal, iva, total: subtotal + iva };
+    const total = subtotal + iva;
+
+    return { seleccionados, subtotal, iva, total };
   };
 
   const { seleccionados, subtotal, iva, total } = calcularResumen();
 
-  // Función para guardar borrador
   const guardarBorrador = async () => {
-    const { seleccionados, total } = calcularResumen();
     try {
-      await api.post('/cotizaciones/borrador', {
+      await api.post('/cotizaciones', {
         cliente, direccion, fechaEntrega, metodoPago,
-        tipo, total, rutCliente, giroCliente, formaPago,
+        tipo, rutCliente, giroCliente, formaPago,
         nota, direccionCliente, comunaCliente, ciudadCliente, atencion,
         emailCliente, telefonoCliente, estado: "borrador",
-        productos: seleccionados.map(p => ({ itemId: p.id, cantidad: p.cantidad, precio: p.precio, total: p.total })),
+        productos: seleccionados.map(p => ({
+          itemId: p.id.toString(), // 🔹 forzar string
+          cantidad: p.cantidad,
+          nombre: p.nombre,
+          precio: p.precio,
+          total: p.total
+        }))
       });
       alert('✅ Borrador guardado');
-      navigate("/borradores");
+      navigate("/ver-borradores");
     } catch {
       alert('❌ Error al guardar borrador');
     }
   };
 
-  // Función para crear o actualizar cotización
   const enviarCotizacion = async () => {
     if (enviando) return;
     setEnviando(true);
-    const { seleccionados } = calcularResumen();
+
     try {
+      const data = {
+        cliente, direccion, rutCliente, giroCliente, direccionCliente,
+        comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
+        formaPago, nota, fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago, tipo,
+        productos: seleccionados.map(p => ({
+          itemId: p.id.toString(), // 🔹 forzar string
+          cantidad: p.cantidad,
+          nombre: p.nombre,
+          precio: p.precio,
+          total: p.total
+        }))
+      };
       let res;
-      if (id) {
-        res = await api.put(`/cotizaciones/${id}`, {
-          cliente, direccion, rutCliente, giroCliente, direccionCliente,
-          comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
-          formaPago, nota, fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago, tipo,
-          productos: seleccionados.map(p => ({ itemId: p.id, cantidad: p.cantidad, precio: preciosPersonalizados[p.id] ?? p.precio })),
-        });
-      } else {
-        res = await api.post('/cotizaciones', {
-          cliente, direccion, rutCliente, giroCliente, direccionCliente,
-          comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
-          formaPago, nota, fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago, tipo,
-          productos: seleccionados.map(p => ({ itemId: p.id, cantidad: p.cantidad, precio: preciosPersonalizados[p.id] ?? p.precio })),
-        });
-      }
+      if (id) res = await api.put(`/cotizaciones/${id}`, data);
+      else res = await api.post('/cotizaciones', data);
 
       setCorrelativo(res.data.numero);
-      const productosParaPDF = seleccionados.map(p => ({ ...p, precio: preciosPersonalizados[p.id] ?? p.precio }));
 
-      // ✅ Aquí se pasan formaPago y nota al PDF
-      const pdfBlob = generarGuiaPDF(cliente, productosParaPDF, {
-        fechaEntrega,
-        metodoPago,
-        tipoDocumento: tipo,
-        rutCliente,
-        numeroDocumento: res.data.numero,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente,
-        tipo,
-        direccion,
-        formaPago,
-        nota,
+      const pdfBlob = generarGuiaPDF(cliente, seleccionados, {
+        fechaEntrega, metodoPago, tipoDocumento: tipo, rutCliente, numeroDocumento: res.data.numero,
+        giroCliente, direccionCliente, comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
+        tipo, direccion, formaPago, nota
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -198,19 +194,21 @@ export default function Cotizaciones() {
       setShowPdfModal(true);
 
       const fd = new FormData();
-      fd.append('file', new File([pdfBlob], 'doc.pdf', { type: 'application/pdf' }));
+      fd.append('file', new File([pdfBlob], `cotizacion-${res.data.numero}.pdf`, { type: 'application/pdf' }));
       fd.append('cotizacionId', res.data._id);
-      await api.post('/cotizaciones/upload-pdf', fd);
+      await api.post('/cotizaciones/upload-pdf', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
       alert('✅ Cotización creada/actualizada');
     } catch (err) {
       console.error(err);
       alert('❌ Error al crear/actualizar');
     }
+
     setEnviando(false);
   };
 
-  // Función para enviar WhatsApp
   const enviarWhatsapp = () => {
     if (!telefonoCliente) { alert("⚠️ El cliente no tiene número de teléfono"); return; }
     const numero = telefonoCliente.replace(/\s+/g, "");
@@ -264,30 +262,37 @@ Puedes descargar el documento aquí: ${linkPDF}
         nota={nota} setNota={setNota}
       />
 
-      {/* Buscador de productos fuera del scroll */}
       <div className="sticky top-0 z-20 bg-gray-50 p-4 rounded-lg shadow-sm">
         <BuscadorProductos
           busqueda={busqueda}
           setBusqueda={setBusqueda}
-          onAgregar={(item) => setSelectedItems((prev) => ({ ...prev, [item._id]: (prev[item._id] || 0) + 1 }))}
+          onAgregar={(item) => setSelectedItems(prev => ({
+            ...prev,
+            [item._id.toString()]: {
+              cantidad: (prev[item._id.toString()]?.cantidad || 0) + 1,
+              nombre: item.nombre,
+              precio: prev[item._id.toString()]?.precio ?? item.precio
+            }
+          }))}
         />
       </div>
 
-      {/* Tabla de productos con scroll interno */}
       <div className="border rounded-lg overflow-y-auto max-h-96 shadow-sm">
-        <ResumenTablaProductos
-          seleccionados={seleccionados}
-          subtotal={subtotal}
-          iva={iva}
-          total={total}
-          onCantidadChange={handleCantidadChange}
-          onEliminar={eliminarProducto}
-          onPrecioChange={handlePrecioChange}
-          placeholder="Agrega productos aquí"
-        />
+        {seleccionados.length > 0 ? (
+          <ResumenTablaProductos
+            seleccionados={seleccionados}
+            subtotal={subtotal}
+            iva={iva}
+            total={total}
+            onCantidadChange={handleCantidadChange}
+            onEliminar={eliminarProducto}
+            onPrecioChange={handlePrecioChange}
+          />
+        ) : (
+          <p className="p-4 text-gray-500">Agrega productos aquí</p>
+        )}
       </div>
 
-      {/* Modal PDF */}
       {showPdfModal && pdfUrl && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg w-3/4 h-5/6 relative flex flex-col">
@@ -300,7 +305,6 @@ Puedes descargar el documento aquí: ${linkPDF}
           </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // src/pages/NotasDeVenta.tsx
 import { useEffect, useState, useMemo } from "react";
 import api from "../api/api";
+import { FileText, Trash2, CreditCard } from "lucide-react";
 
 interface Producto {
   nombre: string;
@@ -12,20 +13,20 @@ interface NotaDeVenta {
   _id: string;
   cliente: string;
   direccion: string;
-  fechaEntrega: string; // formato YYYY-MM-DD
+  fechaEntrega: string; // YYYY-MM-DD
   metodoPago: string;
   productos: Producto[];
   pdfUrl?: string;
-  anulada?: string;
+  anulada?: string; // viene como string/flag
   cotizacionOriginalId?: string;
-  tipo?: string;
+  tipo?: string; // "nota"
 }
 
 export default function NotasDeVenta() {
   const [notas, setNotas] = useState<NotaDeVenta[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [progressVisible, setProgressVisible] = useState(false); // para animación fade out
+  const [progressVisible, setProgressVisible] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState<string>(() => {
     const hoy = new Date();
     return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
@@ -33,8 +34,20 @@ export default function NotasDeVenta() {
   const [pagina, setPagina] = useState(1);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null); // deshabilitar botón pagar por fila
 
   const notasPorPagina = 5;
+
+  // mensaje por status de Stripe (success/cancel)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status === "success") {
+      alert("✅ Pago realizado con éxito");
+    } else if (status === "cancel") {
+      alert("❌ Pago cancelado por el cliente");
+    }
+  }, []);
 
   useEffect(() => {
     cargarNotas();
@@ -46,7 +59,7 @@ export default function NotasDeVenta() {
     setProgressVisible(true);
     try {
       const res = await api.get("/cotizaciones");
-      const todasNotas = res.data.filter((c: NotaDeVenta) => c.tipo === "nota");
+      const todasNotas: NotaDeVenta[] = res.data.filter((c: NotaDeVenta) => c.tipo === "nota");
 
       const procesadas: NotaDeVenta[] = [];
       const total = todasNotas.length;
@@ -62,9 +75,8 @@ export default function NotasDeVenta() {
       console.error("Error al cargar notas de venta", err);
     } finally {
       setLoading(false);
-      // Fade out de la barra
       setTimeout(() => setProgressVisible(false), 500);
-      setTimeout(() => setProgress(0), 800); // reiniciamos progreso
+      setTimeout(() => setProgress(0), 800);
     }
   };
 
@@ -120,9 +132,53 @@ export default function NotasDeVenta() {
     return `${day}-${month}-${year}`;
   };
 
+  // 👉 función para pagar con Stripe
+  const pagarNota = async (nota: NotaDeVenta) => {
+    try {
+      const neto = nota.productos.reduce(
+        (a, p) => a + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
+        0
+      );
+
+      const res = await api.post("/pagos/create-checkout-session", {
+        notaId: nota._id,
+        monto: neto,
+        });
+
+        const checkoutUrl = res.data.url;
+
+      if (checkoutUrl) {
+        // ✅ 1. Abrir directamente Stripe Checkout
+        window.open(checkoutUrl, "_blank");
+
+        // ✅ 2. Copiar link al portapapeles
+        await navigator.clipboard.writeText(checkoutUrl);
+        alert("✅ Link copiado al portapapeles, envíalo al cliente.");
+
+        // ✅ 3. Preparar link para WhatsApp
+        const mensaje = `Hola 👋, aquí está el link para pagar su nota de venta #${nota._id}: ${checkoutUrl}`;
+        const waUrl = `https://wa.me/569XXXXXXXX?text=${encodeURIComponent(mensaje)}`;
+
+        // abrir en nueva pestaña (se puede comentar si no lo quieres automático)
+        window.open(waUrl, "_blank");
+      }
+
+
+      if (res.data.url) {
+        window.location.href = res.data.url; // redirige al checkout de Stripe
+      }
+    } catch (err) {
+      console.error("Error iniciando pago:", err);
+      alert("No se pudo iniciar el pago");
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen flex flex-col">
-      <h2 className="text-3xl font-semibold mb-6 text-gray-800">Notas de Venta</h2>
+      <h2 className="text-3xl font-semibold mb-6 text-gray-800 flex items-center gap-2">
+        <FileText className="w-7 h-7" />
+        Notas de Venta
+      </h2>
 
       {/* Filtro por mes */}
       <div className="mb-4">
@@ -140,8 +196,10 @@ export default function NotasDeVenta() {
 
       {/* Barra de progreso */}
       {progressVisible && (
-        <div className="w-full h-2 bg-gray-300 rounded mb-4 overflow-hidden transition-opacity duration-500"
-             style={{ opacity: progressVisible ? 1 : 0 }}>
+        <div
+          className="w-full h-2 bg-gray-300 rounded mb-4 overflow-hidden transition-opacity duration-500"
+          style={{ opacity: progressVisible ? 1 : 0 }}
+        >
           <div
             className="h-2 bg-blue-600 rounded transition-all duration-300"
             style={{ width: `${progress}%` }}
@@ -150,7 +208,7 @@ export default function NotasDeVenta() {
       )}
 
       {/* Tabla */}
-      <div className="flex-1 shadow-md rounded-lg relative overflow-x-auto">
+      <div className="flex-1 shadow-md rounded-lg relative overflow-x-auto bg-white">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100 border-b border-gray-300">
             <tr>
@@ -162,7 +220,7 @@ export default function NotasDeVenta() {
               <th className="p-3 text-gray-700 font-medium uppercase text-sm">IVA</th>
               <th className="p-3 text-gray-700 font-medium uppercase text-sm">Total</th>
               <th className="p-3 text-gray-700 font-medium uppercase text-sm">PDF</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Acción</th>
+              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -175,23 +233,24 @@ export default function NotasDeVenta() {
               );
               const iva = Math.round(neto * 0.19);
               const total = neto + iva;
+              const estaAnulada = Boolean(nota.anulada);
 
               return (
                 <tr
                   key={nota._id}
-                  className={`${nota.anulada ? "bg-red-50" : "bg-white"} border-b border-gray-200`}
+                  className={`${estaAnulada ? "bg-red-50" : "bg-white"} border-b border-gray-200`}
                 >
                   <td className="p-3 text-gray-800">{nota.cliente}</td>
                   <td className="p-3 text-gray-800">{nota.direccion}</td>
                   <td className="p-3 text-gray-800">{formatearFecha(nota.fechaEntrega)}</td>
                   <td className="p-3 text-gray-800">{nota.metodoPago}</td>
-                  <td className={`p-3 font-semibold ${nota.anulada ? "text-red-600" : "text-gray-800"}`}>
+                  <td className={`p-3 font-semibold ${estaAnulada ? "text-red-600" : "text-gray-800"}`}>
                     ${neto.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
                   </td>
-                  <td className={`p-3 font-semibold ${nota.anulada ? "text-red-600" : "text-gray-800"}`}>
+                  <td className={`p-3 font-semibold ${estaAnulada ? "text-red-600" : "text-gray-800"}`}>
                     ${iva.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
                   </td>
-                  <td className={`p-3 font-bold ${nota.anulada ? "text-red-600" : "text-gray-900"}`}>
+                  <td className={`p-3 font-bold ${estaAnulada ? "text-red-600" : "text-gray-900"}`}>
                     ${total.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
                   </td>
                   <td className="p-3">
@@ -209,14 +268,28 @@ export default function NotasDeVenta() {
                       <span className="text-gray-400 text-sm">No disponible</span>
                     )}
                   </td>
+                  {/* ✅ ÚNICA columna de acciones */}
                   <td className="p-3">
-                    {!nota.anulada ? (
-                      <button
-                        onClick={() => anularNota(nota._id)}
-                        className="px-4 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                      >
-                        Anular
-                      </button>
+                    {!estaAnulada ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => anularNota(nota._id)}
+                          className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition flex items-center gap-1"
+                          title="Anular"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Anular
+                        </button>
+                        <button
+                          onClick={() => pagarNota(nota)}
+                          disabled={payingId === nota._id}
+                          className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center gap-1 disabled:opacity-60"
+                          title="Pagar"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          {payingId === nota._id ? "Procesando..." : "Pagar"}
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-red-600 font-semibold">Anulada</span>
                     )}

@@ -8,17 +8,19 @@ router.post('/', verifyToken, async (req, res) => {
   const { nombre, cantidad, precio, fecha, comprometidos, codigo, costo } = req.body;
 
   try {
+      if (req.body.modo === 'catalogo') {
+    req.body.cantidad = 0; // siempre stock inicial en 0
+    }
     let existente;
 
-    // Si se proporciona un código, buscar por código
     if (codigo) {
       existente = await Item.findOne({ codigo });
     }
-
-    // Si no se encontró por código, buscar por nombre (compatibilidad con tu sistema actual)
     if (!existente) {
       existente = await Item.findOne({ nombre });
     }
+
+    
 
     let mensaje = '';
 
@@ -27,7 +29,7 @@ router.post('/', verifyToken, async (req, res) => {
       existente.precio = precio;
       existente.fecha = new Date(fecha);
       existente.modificadoPor = req.user;
-      if (codigo) existente.codigo = codigo; // actualiza código si viene nuevo
+      if (codigo) existente.codigo = codigo;
       await existente.save();
       mensaje = '📝 Actualizado';
       return res.status(200).json({ ...existente.toObject(), _mensaje: mensaje });
@@ -40,7 +42,7 @@ router.post('/', verifyToken, async (req, res) => {
         costo,
         modificadoPor: req.user,
         comprometidos,
-        codigo // nuevo campo opcional
+        codigo
       });
 
       await nuevoItem.save();
@@ -53,22 +55,42 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// Obtener todo el inventario (con token)
+// Obtener inventario con search + paginación
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const items = await Item.find().populate('modificadoPor', 'name email');
-    res.json(items);
+    const { search = '', page = 1, limit = 20 } = req.query;
+
+    const filtros = {};
+    if (search) {
+      const regex = new RegExp(search, 'i'); 
+      filtros.$or = [{ nombre: regex }, { codigo: regex }];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [items, total] = await Promise.all([
+      Item.find(filtros)
+        .populate('modificadoPor', 'name email')
+        .skip(skip)
+        .limit(Number(limit))
+        .sort({ nombre: 1 }),
+      Item.countDocuments(filtros)
+    ]);
+
+    res.json({ items, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error al obtener los productos' });
   }
 });
+
 
 // Función para escapar caracteres especiales en regex
 function escapeRegex(text) {
   return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
 
-// Buscar por nombre o código
+// Buscar por nombre o código (para autocompletar)
 router.get('/buscar', verifyToken, async (req, res) => {
   const q = req.query.q?.toString().toLowerCase() || '';
   const safeQ = escapeRegex(q);

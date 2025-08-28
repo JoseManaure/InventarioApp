@@ -38,7 +38,7 @@ export default function VerBorradores() {
   useEffect(() => {
     const cargar = async () => {
       try {
-        const res = await api.get('/cotizaciones/borradores');
+        const res = await api.get('/cotizaciones/borrador');
         setBorradores(res.data);
       } catch (err) {
         console.error('Error al cargar borradores', err);

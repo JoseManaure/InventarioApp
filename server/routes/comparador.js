@@ -1,42 +1,66 @@
-const express = require('express');
+const express = require("express");
+const puppeteer = require("puppeteer");
+
 const router = express.Router();
-const buscarConstrumartAutocomplete = require('../scrapers/construmartAutocomplete');
-const buscarConstrumart = require('../scrapers/construmart');
-const Item = require('../models/Item');
 
-router.get('/todos', async (req, res) => {
+router.get("/:producto", async (req, res) => {
+  const { producto } = req.params;
+
   try {
-    const itemsLocales = await Item.find().limit(1); // límite 10 para evitar saturar
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
 
-    const resultados = [];
+    // armo la búsqueda
+    const busqueda = encodeURIComponent(producto);
+    await page.goto(`https://www.construmart.cl/${busqueda}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
 
-    for (const item of itemsLocales) {
-        console.log(`Buscando producto: ${item.nombre}`); // LOG para saber en qué producto va
-      const externo = await buscarConstrumartAutocomplete(item.nombre);
+    // scrapear productos
+    const productos = await page.evaluate(() => {
+      const items = [];
+      const productCards = document.querySelectorAll(
+        ".vtex-search-result-3-x-galleryItem"
+      );
 
-      // Diferencia solo si ambos precios son válidos
-      let diferencia = null;
-      if (item.precio && externo.precio != null) {
-        diferencia = item.precio - externo.precio;
-      }
+      productCards.forEach((card) => {
+        const nombre = card.querySelector(
+          ".vtex-product-summary-2-x-productBrand"
+        )?.innerText;
 
-      resultados.push({
-        nombreLocal: item.nombre,
-        precioLocal: item.precio,
-        nombreExterno: externo.nombreProducto || 'No encontrado',
-        precioExterno: externo.precio,
-        urlExterno: externo.urlProducto,
-        diferencia
+        const precio = card.querySelector(
+          ".vtex-product-price-1-x-sellingPrice"
+        )?.innerText;
+
+        const url = card.querySelector("a")?.getAttribute("href");
+
+        if (nombre && precio && url) {
+          const precioNumero = parseInt(
+            precio.replace(/[^0-9]/g, ""),
+            10
+          );
+
+          items.push({
+            nombre,
+            precio,
+            precioNumero,
+            url: url.startsWith("http")
+              ? url
+              : `https://www.construmart.cl${url}`,
+          });
+        }
       });
 
-      // Espera 1.5 seg entre cada búsqueda para no saturar
-      await new Promise(r => setTimeout(r, 1500));
-    }
+      return items;
+    });
 
-    res.json(resultados);
-  } catch (err) {
-    console.error('Error comparar todos:', err);
-    res.status(500).json({ error: 'Error al comparar todos los productos' });
+    await browser.close();
+
+    res.json({ productos });
+  } catch (error) {
+    console.error("Error scraping:", error);
+    res.status(500).json({ error: "Error al obtener precios" });
   }
 });
 

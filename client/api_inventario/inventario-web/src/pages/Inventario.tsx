@@ -34,13 +34,15 @@ export default function Inventario() {
           uuid: uuidv4(),
           codigo,
           nombre,
-          cantidad,
+          cantidad: 0,
+          modo: 'catalogo',
           costo,
           precio,
           fecha,
         });
 
         mensajes.push(`✅ ${res.data.nombre} → ${res.data._mensaje || 'Guardado correctamente'}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error('Error al guardar:', err);
         mensajes.push(`❌ ${nombre} → Error al guardar`);

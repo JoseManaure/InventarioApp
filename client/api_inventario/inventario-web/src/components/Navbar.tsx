@@ -19,8 +19,8 @@ export default function Navbar() {
       <Link to="/cotizaciones" className={linkClass('/cotizaciones')}>
         Cotizaciones
       </Link>
-      <Link to="/ver-facturas" className={linkClass('/ver-facturas')}>
-        Ver Facturas
+      <Link to="/facturas" className={linkClass('/ver-facturas')}>
+        Entradas
       </Link>
       <Link to="/productos" className={linkClass('/productos')}>
         Productos

@@ -36,12 +36,12 @@ export default function Sidebar() {
 
   const links = [
     { to: '/inventario', label: 'Inventario', icon: Boxes },
-    { to: '/cotizaciones', label: 'Nuevo Documento', icon: FileText },
-    { to: '/notas', label: 'Notas de Venta', icon: StickyNote },
+    { to: '/cotizaciones', label: 'Documentos', icon: FileText },
+    { to: '/notas', label: 'NotasVentas', icon: StickyNote },
     { to: '/ver-cotizaciones', label: 'Cotizaciones', icon: Files },
     { to: '/productos', label: 'Productos', icon: PackageCheck },
     { to: '/facturas/nueva', label: 'Recepción Documentos', icon: FileInput },
-    { to: '/facturas', label: 'Ver Facturas', icon: Files },
+    { to: '/facturas', label: 'Entradas', icon: Files },
     { to: '/ver-borradores', label: 'Borradores', icon: ArchiveRestore },
   ];
 

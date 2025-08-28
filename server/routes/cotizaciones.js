@@ -1,83 +1,22 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+// routes/cotizaciones.js
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/auth');
 const Cotizacion = require('../models/Cotizacion');
 const Item = require('../models/Item');
-const { generarGuiaPDF } = require('../utils/pdf');
+const verifyToken = require('../middleware/auth');
+const mongoose = require('mongoose');
 
-const { obtenerNuevoCorrelativoSeguro } = require('../utils/correlativo');
-
-const mongoose = require('mongoose')
-
-
-// 🔹 Función para obtener correlativo
-async function obtenerNuevoCorrelativo(tipoDocumento) {
-  const ultima = await Cotizacion.findOne({ tipoDocumento })
-    .sort({ numeroDocumento: -1 });
-  return ultima ? ultima.numeroDocumento + 1 : 1;
+// ✅ Función para obtener correlativo seguro
+async function obtenerNuevoCorrelativoSeguro(tipo) {
+  const ultima = await Cotizacion.findOne({ tipo })
+    .sort({ numero: -1 })
+    .select("numero");
+  return ultima ? ultima.numero + 1 : 1;
 }
 
-// Config multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-const upload = multer({ storage });
-
-// Subir PDF
-router.post('/upload-pdf', upload.single('file'), async (req, res) => {
-  try {
-    const { cotizacionId } = req.body;
-    const filePath = `/uploads/${req.file.filename}`;
-    await Cotizacion.findByIdAndUpdate(cotizacionId, { pdfUrl: filePath });
-    res.json({ message: 'PDF guardado', pdfUrl: filePath });
-  } catch (err) {
-    console.error('Error al subir PDF:', err);
-    res.status(500).json({ error: 'Error al subir el PDF' });
-  }
-});
-
-// Listar notas
-router.get('/notas', async (req, res) => {
-  try {
-    const notas = await Cotizacion.find({ tipo: 'nota' });
-    res.json(notas);
-  } catch (error) {
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Listar todos (finalizadas y borradores)
-router.get('/', async (req, res) => {
-  try {
-    const cotizaciones = await Cotizacion.find();
-
- // Verificar si cada cotización fue convertida a nota
-    const cotizacionesConEstado = await Promise.all(
-      cotizaciones.map(async (c) => {
-        const fueConvertida = await Cotizacion.findOne({ cotizacionOriginalId: c._id, tipo: 'nota' });
-        return {
-          ...c.toObject(),
-          yaConvertida: Boolean(fueConvertida),
-        };
-      })
-    );
-   res.json(cotizacionesConEstado);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener cotizaciones' });
-  }
-});
-
-// Crear o actualizar cotización o nota (protegido)
+// =========================
+// 📌 Crear o actualizar Cotización / Nota
+// =========================
 router.post('/', verifyToken, async (req, res) => {
   try {
     const {
@@ -91,7 +30,7 @@ router.post('/', verifyToken, async (req, res) => {
       tipoDocumento, // factura | boleta | guia
       productos,
       _id, // opcional para actualizar borrador
-      estado, // 'borrador' o 'finalizada'
+      estado, // 'borrador' | 'finalizada'
       rutCliente,
       giroCliente,
       direccionCliente,
@@ -99,7 +38,9 @@ router.post('/', verifyToken, async (req, res) => {
       ciudadCliente,
       atencion,
       emailCliente,
-      telefonoCliente
+      telefonoCliente,
+      formaPago,
+      nota,
     } = req.body;
 
     if (!['cotizacion', 'nota'].includes(tipo)) {
@@ -110,54 +51,44 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Debe incluir al menos un producto' });
     }
 
-    // Validar fechaEntrega o asignar fecha hoy sin hora
-    let fechaEntregaValida;
-    let fechaEntregaObj;
-    if (!fechaEntrega || isNaN(new Date(fechaEntrega).getTime())) {
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      fechaEntregaValida = hoy.toISOString().split('T')[0];
-      fechaEntregaObj = hoy;
-    } else {
-      fechaEntregaObj = new Date(fechaEntrega);
-      fechaEntregaObj.setHours(0, 0, 0, 0);
-      fechaEntregaValida = fechaEntregaObj.toISOString().split('T')[0];
-    }
+    // ✅ Normalizar fechaEntrega
+    let fechaEntregaObj = fechaEntrega ? new Date(fechaEntrega) : new Date();
+    fechaEntregaObj.setHours(0, 0, 0, 0);
+    const fechaEntregaValida = fechaEntregaObj.toISOString().split("T")[0];
 
-    // Validar existencia (solo si es nota)
+    // ✅ Validar itemId si es nota
     for (const p of productos) {
-      const item = await Item.findById(p.itemId);
-      if (!item && tipo === 'nota') {
-        return res.status(400).json({ error: `Producto no encontrado: ${p.itemId}` });
+      if (tipo === 'nota') {
+        const item = await Item.findById(p.itemId);
+        if (!item) {
+          return res.status(400).json({ error: `Producto no encontrado: ${p.itemId}` });
+        }
       }
     }
 
-    // Preparar productos con precios
-    const productosConPrecio = await Promise.all(
-      productos.map(async (p) => {
-        const item = await Item.findById(p.itemId);
-        const cantidad = Number(p.cantidad);
-        const precio = item ? Number(item.precio) : 0;
-        return {
-          itemId: item ? item._id : p.itemId,
-          nombre: item ? item.nombre : '[Producto eliminado]',
-          cantidad,
-          precio,
-          total: cantidad * precio,
-        };
-      })
-    );
+    // ✅ Normalizar productos
+    const productosValidados = productos.map((p) => {
+      const cantidad = Number(p.cantidad || 0);
+      const precio = Number(p.precio || 0);
+      return {
+        itemId: p.itemId,
+        cantidad,
+        nombre: p.nombre, 
+        precio,
+        total: cantidad * precio,
+      };
+    });
 
-    const total = productosConPrecio.reduce((acc, p) => acc + p.total, 0);
+    const total = productosValidados.reduce((acc, p) => acc + p.total, 0);
+
     let numeroFinal = null;
     let cotizacion;
 
     if (_id) {
-      // Editar existente
+      // 🔄 Editar existente
       const cotizacionExistente = await Cotizacion.findById(_id);
       numeroFinal = cotizacionExistente?.numero || null;
 
-      // Si estaba en borrador y se pasa a finalizada, asignar número
       if (cotizacionExistente?.estado === 'borrador' && estado !== 'borrador') {
         numeroFinal = await obtenerNuevoCorrelativoSeguro(tipo);
       }
@@ -172,7 +103,7 @@ router.post('/', verifyToken, async (req, res) => {
           metodoPago,
           tipo,
           numero: numeroFinal,
-          productos: productosConPrecio,
+          productos: productosValidados,
           total,
           numeroDocumento,
           tipoDocumento,
@@ -184,12 +115,14 @@ router.post('/', verifyToken, async (req, res) => {
           ciudadCliente,
           atencion,
           emailCliente,
-          telefonoCliente
+          telefonoCliente,
+          formaPago: formaPago ?? '',
+          nota: nota ?? '',
         },
         { new: true }
       );
     } else {
-      // Crear nueva
+      // 🆕 Crear nueva
       if (estado !== 'borrador') {
         numeroFinal = await obtenerNuevoCorrelativoSeguro(tipo);
       }
@@ -202,7 +135,7 @@ router.post('/', verifyToken, async (req, res) => {
         metodoPago,
         tipo,
         numero: numeroFinal,
-        productos: productosConPrecio,
+        productos: productosValidados,
         total,
         numeroDocumento,
         tipoDocumento,
@@ -214,19 +147,21 @@ router.post('/', verifyToken, async (req, res) => {
         ciudadCliente,
         atencion,
         emailCliente,
-        telefonoCliente
+        telefonoCliente,
+        formaPago: formaPago ?? '',
+        nota: nota ?? '',
       });
     }
 
-    // Comprometer stock si es nota y no es borrador
+    // 📦 Comprometer stock si es nota
     if (tipo === 'nota' && estado !== 'borrador') {
-      for (const p of productos) {
+      for (const p of productosValidados) {
         const item = await Item.findById(p.itemId);
         if (item) {
           item.comprometidos.push({
             cantidad: p.cantidad,
             hasta: fechaEntregaObj,
-            cotizacionId: cotizacion._id
+            cotizacionId: cotizacion._id,
           });
           await item.save();
         }
@@ -240,455 +175,148 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-
-// Listar borradores
-router.get('/borradores', async (req, res) => {
+// =========================
+// 📌 Obtener todas (con populate)
+// =========================
+router.get('/', verifyToken, async (req, res) => {
   try {
-    const borradores = await Cotizacion.find({ estado: 'borrador' }).sort({ updatedAt: -1 });
-    res.json(borradores);
-  } catch (err) {
-    res.status(500).json({ error: 'Error al listar borradores' });
-  }
-});
-
-
-
-// Guardar borrador (protegido)
-router.post('/borrador', verifyToken, async (req, res) => {
-  try {
-   const {
-  cliente,
-  direccion,
-  fechaEntrega,
-  metodoPago,
-  tipo,
-  productos,
-  rutCliente,
-  giroCliente,
-  direccionCliente,
-  comunaCliente,
-  ciudadCliente,
-  atencion,
-  emailCliente,
-  telefonoCliente
-} = req.body;
-
-
-    const productosConTotal = productos.map(p => ({
-      ...p,
-      total: p.cantidad * p.precio,
-    }));
-
-    const total = productosConTotal.reduce((acc, p) => acc + p.total, 0);
-
-    const nuevaCotizacion = new Cotizacion({
-      cliente,
-      direccion,
-      fechaHoy: new Date().toLocaleDateString('es-CL'),
-      fechaEntrega,
-      metodoPago,
-      tipo,
-      total,
-      estado: 'borrador',
-      productos: productosConTotal,
-      rutCliente,
-      giroCliente,
-      direccionCliente,
-      comunaCliente,
-      ciudadCliente,
-       atencion,
-      emailCliente,
-    telefonoCliente
-
-
-    });
-
-    await nuevaCotizacion.save();
-
-    res.status(200).json({ message: 'Borrador guardado', _id: nuevaCotizacion._id });
+    const cotizaciones = await Cotizacion.find()
+      .populate("productos.itemId", "nombre")
+      .sort({ createdAt: -1 });
+    res.json(cotizaciones);
   } catch (error) {
-    console.error('Error al guardar borrador:', error);
-    res.status(500).json({ message: 'Error al guardar borrador' });
+    res.status(500).json({ error: 'Error al obtener cotizaciones' });
   }
 });
 
 
-// Crear cotización desde borrador
-router.post('/desde-borrador/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+// ✅ Declaración global para esta ruta
+const estadosValidos = ['borrador', 'finalizada', 'cancelada'];
 
-    // 1️⃣ Validar que el ID sea válido → evita CastError
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let resultado;
+
+    // 🔹 Si el parámetro es un estado válido
+    if (estadosValidos.includes(id)) {
+      resultado = await Cotizacion.find({ estado: id })
+        .populate("productos.itemId")
+        .lean();
+
+      // Asignar siempre nombre de producto
+      resultado = resultado.map((cotizacion) => ({
+        ...cotizacion,
+        productos: cotizacion.productos.map((p) => ({
+          ...p,
+          nombre: p.itemId?.nombre || p.nombre,
+        })),
+      }));
+
+      return res.json(resultado);
+    }
+
+    // 🔹 Si es un ObjectId válido
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'ID inválido' });
+      return res.status(400).json({ error: "ID no válido" });
     }
 
-    // 2️⃣ Buscar borrador válido
-    const borrador = await Cotizacion.findById(id);
+    const cotizacion = await Cotizacion.findById(id)
+      .populate("productos.itemId")
+      .lean();
 
-    if (!borrador || borrador.estado !== 'borrador' || borrador.tipo !== 'cotizacion') {
-      return res.status(400).json({ error: 'No es un borrador válido' });
+    if (!cotizacion) {
+      return res.status(404).json({ error: "Cotización no encontrada" });
     }
 
-    // 3️⃣ Evitar conversión duplicada
-    const yaExiste = await Cotizacion.findOne({ cotizacionOriginalId: borrador._id, tipo: 'cotizacion' });
-    if (yaExiste) {
-      return res.status(400).json({ error: 'Este borrador ya fue convertido' });
-    }
-
-    // 4️⃣ Usar tu función para obtener un número único
-    const nuevoNumero = await obtenerNuevoCorrelativoSeguro('cotizacion');
-
-    // 5️⃣ Crear nueva cotización
-    const nuevaCotizacion = new Cotizacion({
-      ...borrador.toObject(),
-      _id: undefined,
-      estado: 'finalizada',
-      numero: nuevoNumero,
-      cotizacionOriginalId: borrador._id,
-    });
-
-    await nuevaCotizacion.save();
-    await borrador.deleteOne();
-
-    res.json(nuevaCotizacion);
-  } catch (err) {
-    console.error("Error al convertir borrador:", err);
-    res.status(500).json({ error: 'Error al convertir borrador' });
-  }
-});
-
-
-
-
-// PUT para actualizar borrador y pasarlo a cotización
-router.put('/borrador-a-cotizacion/:id', verifyToken, async (req, res) => {
-  try {
-    const id = req.params.id;
-    
-    const {
-      cliente,
-      direccion,
-      rutCliente,
-      giroCliente,
-      direccionCliente,
-      comunaCliente,
-      ciudadCliente,
-      atencion,
-      emailCliente,
-      telefonoCliente,
-      fechaHoy,
-      fechaEntrega,
-      metodoPago,
-      productos
-    } = req.body;
-    
-     // Obtener nuevo número correlativo seguro para cotización
-    const nuevoNumero = await obtenerNuevoCorrelativoSeguro('cotizacion');
-
-    // Actualiza y cambia tipo a "cotizacion"
-    const cotizacionActualizada = await Cotizacion.findByIdAndUpdate(
-      id,
-      {
-        cliente,
-        direccion,
-        rutCliente,
-        giroCliente,
-        direccionCliente,
-        comunaCliente,
-        ciudadCliente,
-        atencion,
-        emailCliente,
-        telefonoCliente,
-        fechaHoy,
-        fechaEntrega,
-        metodoPago,
-        tipo: "cotizacion", // se convierte
-         numero: nuevoNumero,
-         estado: 'finalizada',
-        productos
-      },
-      { new: true }
-    );
-
-    res.json(cotizacionActualizada);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error al actualizar borrador" });
-  }
-});
-
-
-// Obtener cotización por ID (borrador o finalizada)
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Validación: prevenir errores de ObjectId
-    if (!id || id === 'null' || id === 'undefined') {
-      return res.status(400).json({ message: 'ID no válido' });
-    }
-
-    const cotizacion = await Cotizacion.findById(id);
-    if (!cotizacion) return res.status(404).json({ message: 'Cotización no encontrada' });
+    // Siempre asignamos nombre (del item o respaldo)
+    cotizacion.productos = cotizacion.productos.map((p) => ({
+      ...p,
+      nombre: p.itemId?.nombre || p.nombre,
+    }));
 
     res.json(cotizacion);
   } catch (err) {
-    console.error('Error al obtener cotización:', err);
-    res.status(500).json({ message: 'Error del servidor' });
+    console.error("Error obteniendo cotización:", err);
+    res.status(500).json({ error: "Error obteniendo cotización" });
   }
 });
 
 
-// Anular nota de venta por id (y liberar stock comprometido)
-router.put('/:id/anular', async (req, res) => {
+// =========================
+// 📌 Convertir a Nota
+// =========================
+router.post('/:id/convertir-a-nota', verifyToken, async (req, res) => {
   try {
-    const nota = await Cotizacion.findById(req.params.id);
-    if (!nota) return res.status(404).json({ message: 'Nota no encontrada' });
+    const cotizacion = await Cotizacion.findById(req.params.id);
+    if (!cotizacion) return res.status(404).json({ error: "Cotización no encontrada" });
 
-    if (nota.tipo !== 'nota') {
-      return res.status(400).json({ message: 'Solo se pueden anular notas de venta' });
-    }
+    const numeroFinal = await obtenerNuevoCorrelativoSeguro('nota');
 
-    // Marcar como anulada
-    nota.anulada = true;
-    await nota.save();
+    const nuevaNota = await Cotizacion.create({
+      ...cotizacion.toObject(),
+      _id: undefined,
+      tipo: 'nota',
+      numero: numeroFinal,
+      cotizacionOriginalId: cotizacion._id,
+      estado: 'finalizada',
+    });
 
-    // Eliminar stock comprometido relacionado a esta nota
-    for (const p of nota.productos) {
+    // 📦 Comprometer stock
+    for (const p of nuevaNota.productos) {
       const item = await Item.findById(p.itemId);
       if (item) {
-        item.comprometidos = item.comprometidos.filter(
-          (comp) => String(comp.cotizacionId) !== String(nota._id)
-        );
+        item.comprometidos.push({
+          nombre: p.nombre,
+          cantidad: p.cantidad,
+          hasta: new Date(nuevaNota.fechaEntrega),
+          cotizacionId: nuevaNota._id,
+        });
         await item.save();
       }
     }
 
-    res.json({ message: 'Nota anulada correctamente y stock liberado' });
-  } catch (err) {
-    console.error('Error al anular nota:', err);
-    res.status(500).json({ message: 'Error del servidor' });
-  }
-});
-
-
-router.post('/:id/convertir-a-nota', verifyToken, async (req, res) => {
-  try {
-    const cotizacion = await Cotizacion.findById(req.params.id);
-    if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada' });
-
-    if (cotizacion.estado === 'borrador')
-      return res.status(400).json({ error: 'No se puede generar nota desde un borrador' });
-    if (cotizacion.tipo === 'nota')
-      return res.status(400).json({ error: 'Ya es una nota de venta' });
-      // ✅ Tomar productos SOLO desde el frontend
-      const productosCliente = Array.isArray(req.body.productos)
-        ? req.body.productos
-        : [];
-
-      if (productosCliente.length === 0) {
-        return res.status(400).json({ error: 'Debes enviar los productos con los precios desde el frontend' });
-      }
-
-      const productosConPrecio = await Promise.all(
-        productosCliente.map(async (p) => {
-          let nombreProducto = p.nombre;
-
-          if (!nombreProducto) {
-            const item = await Item.findById(p.itemId);
-            nombreProducto = item ? item.nombre : '[Producto eliminado]';
-          }
-
-          const cantidad = Number(p.cantidad || 0);
-          const precio = Number(p.precio || 0);
-
-          return {
-            itemId: p.itemId,
-            nombre: nombreProducto,
-            cantidad,
-            precio,
-            total: cantidad * precio,
-          };
-        })
-);
-
-
-    const totalNota = productosConPrecio.reduce((acc, p) => acc + p.total, 0);
-    const nuevoNumero = await obtenerNuevoCorrelativoSeguro('nota');
-
-    // ⚡ Fix duplicado: quitar _id antes de crear la nueva nota
-    const dataNuevaNota = {
-      ...cotizacion.toObject(),
-      _id: undefined,  // <- Mongo genera un nuevo _id
-      tipo: 'nota',
-      numero: nuevoNumero,
-      numeroDocumento: nuevoNumero,
-      productos: productosConPrecio,
-      total: totalNota,
-      estado: 'finalizada',
-      fechaHoy: new Date().toLocaleDateString('es-CL'),
-      cotizacionOriginalId: cotizacion._id,
-      pdfUrl: ''
-    };
-
-    const nuevaNota = await Cotizacion.create(dataNuevaNota);
-
-    // 📄 PDF con precios ajustados
-    const pdfBuffer = generarGuiaPDF(
-      cotizacion.cliente,
-      productosConPrecio,
-      {
-        tipo: 'nota',
-        direccion: cotizacion.direccion,
-        fechaEntrega: cotizacion.fechaEntrega,
-        metodoPago: cotizacion.metodoPago,
-        tipoDocumento: 'nota',
-        numeroDocumento: nuevoNumero,
-        rutCliente: cotizacion.rutCliente,
-        giroCliente: cotizacion.giroCliente,
-        direccionCliente: cotizacion.direccionCliente,
-        comunaCliente: cotizacion.comunaCliente,
-        ciudadCliente: cotizacion.ciudadCliente,
-        atencion: cotizacion.atencion,
-        emailCliente: cotizacion.emailCliente,
-        telefonoCliente: cotizacion.telefonoCliente,
-      }
-    );
-
-    const filename = `nota-${nuevaNota._id}.pdf`;
-    const filepath = path.join(__dirname, `../uploads/${filename}`);
-    fs.writeFileSync(filepath, pdfBuffer);
-
-    nuevaNota.pdfUrl = `/uploads/${filename}`;
-    await nuevaNota.save();
-
     res.status(201).json(nuevaNota);
-  } catch (err) {
-    console.error('Error al convertir cotización:', err);
-    res.status(500).json({ error: 'Error al convertir a nota de venta' });
+  } catch (error) {
+    console.error("Error al convertir a nota:", error);
+    res.status(500).json({ error: "Error al convertir a nota" });
   }
 });
 
-
+// =========================
+// 📌 Actualizar (PUT)
+// =========================
+// PUT actualizar cotización
+// PUT actualizar cotización
+// PUT actualizar cotización
+// server/routes/cotizaciones.js
 router.put('/:id', verifyToken, async (req, res) => {
   try {
-    const cotizacion = await Cotizacion.findById(req.params.id);
-    if (!cotizacion) return res.status(404).send('Cotización no encontrada');
+    const productos = (req.body.productos || []).map(p => ({
+      itemId: typeof p.itemId === 'string' ? p.itemId : p.itemId._id?.toString(),
+      nombre: p.nombre,
+      cantidad: Number(p.cantidad),
+      precio: Number(p.precio),
+      total: Number(p.total)
+    }));
 
-       if (cotizacion.tipo === 'cotizacion') {
-            const fueConvertida = await Cotizacion.findOne({ cotizacionOriginalId: cotizacion._id, tipo: 'nota' });
-            if (fueConvertida) {
-              return res.status(403).json({ error: 'Cotización ya fue convertida. No se puede editar.' });
-            }
-          }
+    const updated = await Cotizacion.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, productos },
+      { new: true }
+    );
 
-   const {
-  cliente,
-  direccion,
-  rutCliente,
-  fechaEntrega,
-  metodoPago,
-  tipo,
-  productos,
-  giroCliente,
-  direccionCliente,
-  comunaCliente,
-  ciudadCliente,
-  atencion,
-  emailCliente,
-  telefonoCliente,
-} = req.body;
-
-
-    cotizacion.cliente = cliente;
-    cotizacion.rutCliente = rutCliente;
-    cotizacion.direccion = direccion;
-    cotizacion.fechaEntrega = fechaEntrega;
-    cotizacion.metodoPago = metodoPago;
-    cotizacion.tipo = tipo;
-
-    cotizacion.giroCliente = giroCliente ?? '';
-    cotizacion.direccionCliente = direccionCliente ?? '';
-    cotizacion.comunaCliente = comunaCliente;
-    cotizacion.ciudadCliente = ciudadCliente;
-    cotizacion.atencion = atencion;
-    cotizacion.emailCliente = emailCliente;
-    cotizacion.telefonoCliente = telefonoCliente;
-
-    // Validar productos
-   const productosValidados = await Promise.all(
-  productos.map(async (p, index) => {
-    const cantidad = Number(p.cantidad);
-    let precio = Number(p.precio);
-
-    if (isNaN(precio)) {
-      const item = await Item.findById(p.itemId);
-      precio = item ? item.precio : 0;
-    }
-
-    const total = cantidad * precio;
-
-    if (isNaN(cantidad) || isNaN(precio) || isNaN(total)) {
-      throw new Error(`Producto #${index + 1} tiene datos inválidos: cantidad=${p.cantidad}, precio=${p.precio}`);
-    }
-
-    return {
-      ...p,
-      cantidad,
-      precio,
-      total,
-    };
-  })
-);
-
-
-    cotizacion.productos = productosValidados;
-    cotizacion.total = productosValidados.reduce((acc, p) => acc + p.total, 0);
-
-    await cotizacion.save();
-    res.json(cotizacion);
+    res.json(updated);
   } catch (err) {
-    console.error('Error al actualizar cotización:', err.message || err);
-    res.status(500).send('Error del servidor');
-  }
-});
-
-// Obtener cotización finalizada por ID
-router.get('/finalizada/:id', async (req, res) => {
-  try {
-    const cotizacion = await Cotizacion.findOne({ _id: req.params.id, estado: 'finalizada' });
-    if (!cotizacion) return res.status(404).json({ message: 'Cotización finalizada no encontrada' });
-    res.json(cotizacion);
-  } catch (error) {
-    console.error('Error al obtener cotización finalizada:', error);
-    res.status(500).json({ message: 'Error del servidor' });
+    console.error('Error al actualizar cotización:', err);
+    res.status(500).json({ error: 'Error al actualizar cotización', detalles: err });
   }
 });
 
 
-// Obtener borrador por ID
-router.get('/borrador/:id', async (req, res) => {
-  try {
-    const borrador = await Cotizacion.findOne({ _id: req.params.id, estado: 'borrador' });
-    if (!borrador) return res.status(404).json({ message: 'Borrador no encontrado' });
-    res.json(borrador);
-  } catch (error) {
-    console.error('Error al obtener borrador:', error);
-    res.status(500).json({ message: 'Error del servidor' });
-  }
-});
 
 
-// Eliminar cotización o borrador
-router.delete('/:id', verifyToken, async (req, res) => {
-  try {
-    await Cotizacion.findByIdAndDelete(req.params.id);
-    res.status(200).json({ mensaje: 'Cotización eliminada' });
-  } catch (err) {
-    console.error('Error al eliminar cotización:', err);
-    res.status(500).json({ error: 'Error al eliminar cotización' });
-  }
-});
 
 module.exports = router;
+

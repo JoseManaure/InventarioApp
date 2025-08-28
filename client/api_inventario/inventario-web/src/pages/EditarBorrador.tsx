@@ -45,6 +45,7 @@ export default function EditarBorrador() {
     api.get(`/cotizaciones/${id}`)
       .then(res => {
         const d = res.data;
+         console.log('Productos del borrador:', d.productos);
         setCliente(d.cliente || '');
         setRutCliente(d.rutCliente || '');
         setDireccion(d.direccion || '');
@@ -78,8 +79,15 @@ export default function EditarBorrador() {
   }, [id]);
 
   useEffect(() => {
-    api.get('/items').then(res => setItems(res.data)).catch(console.error);
-  }, []);
+  api.get('/items')
+    .then(res => {
+      // Garantiza que items sea siempre un array
+      const data = Array.isArray(res.data) ? res.data : res.data.items || [];
+      console.log('Items del inventario:', data);
+      setItems(data);
+    })
+    .catch(console.error);
+}, []);
 
   const eliminarProducto = (id: string) => {
     setSelectedItems(prev => {
@@ -102,21 +110,23 @@ export default function EditarBorrador() {
   };
 
   const calcularResumen = () => {
-    const seleccionados = Object.entries(selectedItems).map(([id, cantidad]) => {
-      const i = items.find(it => it._id === id);
-      const precio = preciosPersonalizados[id] ?? (i?.precio ?? 0);
-      return {
-        id,
-        nombre: i?.nombre ?? '[Eliminado]',
-        cantidad,
-        precio,
-        total: precio * cantidad,
-      };
-    });
-    const subtotal = seleccionados.reduce((a, p) => a + p.total, 0);
-    const iva = subtotal * 0.19;
-    return { seleccionados, subtotal, iva, total: subtotal + iva };
-  };
+      const seleccionados = Object.entries(selectedItems).map(([id, cantidad]) => {
+    const i = items.find(it => String(it._id) === String(id));
+    const prodBorrador = productos.find(p => String(p.itemId || p._id) === String(id));
+    const nombre = i?.nombre ?? prodBorrador?.nombre ?? '[Eliminado]';
+    const precio = preciosPersonalizados[id] ?? (i?.precio ?? prodBorrador?.precio ?? 0);
+    return {
+      id,
+      nombre,
+      cantidad,
+      precio,
+      total: precio * cantidad,
+    };
+  });
+  const subtotal = seleccionados.reduce((a, p) => a + p.total, 0);
+  const iva = subtotal * 0.19;
+  return { seleccionados, subtotal, iva, total: subtotal + iva };
+};
 
   const actualizarBorrador = async () => {
     const { seleccionados } = calcularResumen();
@@ -127,7 +137,8 @@ export default function EditarBorrador() {
         fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago,
         tipo: 'cotizacion', estado: 'borrador',
         productos: seleccionados.map(p => ({
-          itemId: p.id, cantidad: p.cantidad,
+           itemId: typeof p.id === 'object' ? p.id._id : String(p.id), cantidad: p.cantidad,
+           nombre: p.nombre,total: p.totalm, 
           precio: preciosPersonalizados[p.id] ?? p.precio,
         })),
       });
@@ -176,15 +187,23 @@ export default function EditarBorrador() {
       />
 
       <BuscadorProductos
-        busqueda={busqueda}
-        setBusqueda={setBusqueda}
-        onAgregar={(item) => {
-          setSelectedItems(prev => ({
-            ...prev,
-            [item._id]: (prev[item._id] || 0) + 1
-          }));
-        }}
-      />
+  busqueda={busqueda}
+  setBusqueda={setBusqueda}
+    onAgregar={(item) => {
+    // Asegúrate que item._id es un string
+    const id = typeof item._id === 'string' ? item._id : String(item._id);
+    setSelectedItems(prev => ({
+      ...prev,
+      [id]: (prev[id] || 0) + 1
+    }));
+    setItems((prevItems: Item[]) => {
+  if (!prevItems.some(i => i._id === id)) {
+    return [...prevItems, { ...item, _id: id }];
+  }
+  return prevItems;
+    });
+  }}
+/>
 
       <ResumenTablaProductos
         seleccionados={seleccionados}
