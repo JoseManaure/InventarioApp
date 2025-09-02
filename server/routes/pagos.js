@@ -1,10 +1,11 @@
 // server/routes/pagos.js
 const express = require("express");
 const router = express.Router();
-const Stripe = require("stripe");
+// const Stripe = require("stripe");
 
 // Inicializa Stripe con tu clave secreta (ponla en .env)
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+// const 
+// stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Crear sesión de pago en Stripe
 router.post("/create-checkout-session", async (req, res) => {
