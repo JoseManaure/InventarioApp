@@ -1,11 +1,15 @@
 const express = require("express");
 const router = express.Router();
-const OpenAI = require("openai");
+  
+// const OpenAI = require("openai");
 
 // Inicializar cliente de OpenAI
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // ⚠️ debe estar en tu .env
-});
+
+// const client = new OpenAI({
+
+//  apiKey: process.env.OPENAI_API_KEY, // ⚠️ debe estar en tu .env
+  
+//  });
 
 // Ruta para recibir mensajes
 router.post("/", async (req, res) => {
