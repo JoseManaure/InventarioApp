@@ -32,19 +32,19 @@ export default function Facturas() {
   const facturasPorPagina = 5;
 
   useEffect(() => {
-    const cargarFacturas = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get('/facturas');
-        setFacturas(res.data || []);
-      } catch (err) {
-        console.error('Error cargando facturas', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    cargarFacturas();
-  }, []);
+  const cargarFacturas = async () => {
+    setLoading(true);
+    try {
+       const res = await api.get('/facturas', { params: { limite: 1000 } });
+      setFacturas(res.data.facturas || []); // ✅ extrae el array de facturas
+    } catch (err) {
+      console.error('Error cargando facturas', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  cargarFacturas();
+}, []);
 
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {

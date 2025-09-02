@@ -1,25 +1,28 @@
 // src/pages/NotasDeVenta.tsx
 import { useEffect, useState, useMemo } from "react";
 import api from "../api/api";
-import { FileText, Trash2, CreditCard } from "lucide-react";
+import { FileText, Trash2, CreditCard, Truck, Printer } from "lucide-react";
+import { generarGuiaPDF } from "../utils/pdf"; // <-- tu util PDF personalizado
 
 interface Producto {
+  _id: string;   
   nombre: string;
   cantidad: number;
   precio: number;
+  despachado?: number;
 }
 
 interface NotaDeVenta {
   _id: string;
   cliente: string;
   direccion: string;
-  fechaEntrega: string; // YYYY-MM-DD
+  fechaEntrega: string;
   metodoPago: string;
   productos: Producto[];
   pdfUrl?: string;
-  anulada?: string; // viene como string/flag
+  anulada?: string;
   cotizacionOriginalId?: string;
-  tipo?: string; // "nota"
+  tipo?: string;
 }
 
 export default function NotasDeVenta() {
@@ -34,11 +37,14 @@ export default function NotasDeVenta() {
   const [pagina, setPagina] = useState(1);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [payingId, setPayingId] = useState<string | null>(null); // deshabilitar botón pagar por fila
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  const [showGuiaModal, setShowGuiaModal] = useState(false);
+  const [guiaNota, setGuiaNota] = useState<NotaDeVenta | null>(null);
+  const [despachoCantidades, setDespachoCantidades] = useState<number[]>([]);
 
   const notasPorPagina = 5;
 
-  // mensaje por status de Stripe (success/cancel)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
@@ -60,7 +66,6 @@ export default function NotasDeVenta() {
     try {
       const res = await api.get("/cotizaciones");
       const todasNotas: NotaDeVenta[] = res.data.filter((c: NotaDeVenta) => c.tipo === "nota");
-
       const procesadas: NotaDeVenta[] = [];
       const total = todasNotas.length;
 
@@ -84,11 +89,43 @@ export default function NotasDeVenta() {
     if (!window.confirm("¿Seguro que quieres anular esta nota?")) return;
     try {
       await api.put(`/cotizaciones/${id}/anular`);
+      
       alert("Nota anulada correctamente");
       cargarNotas();
     } catch (err) {
       console.error(err);
       alert("Error al anular la nota");
+    }
+  };
+
+  const pagarNota = async (nota: NotaDeVenta) => {
+    try {
+      const neto = nota.productos.reduce(
+        (a, p) => a + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
+        0
+      );
+
+      const res = await api.post("/pagos/create-checkout-session", {
+        notaId: nota._id,
+        monto: neto,
+      });
+
+      const checkoutUrl = res.data.url;
+      if (checkoutUrl) {
+        window.open(checkoutUrl, "_blank");
+        await navigator.clipboard.writeText(checkoutUrl);
+        alert("✅ Link copiado al portapapeles, envíalo al cliente.");
+        const mensaje = `Hola 👋, aquí está el link para pagar su nota de venta #${nota._id}: ${checkoutUrl}`;
+        const waUrl = `https://wa.me/569XXXXXXXX?text=${encodeURIComponent(mensaje)}`;
+        window.open(waUrl, "_blank");
+      }
+
+      if (res.data.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (err) {
+      console.error("Error iniciando pago:", err);
+      alert("No se pudo iniciar el pago");
     }
   };
 
@@ -132,44 +169,77 @@ export default function NotasDeVenta() {
     return `${day}-${month}-${year}`;
   };
 
-  // 👉 función para pagar con Stripe
-  const pagarNota = async (nota: NotaDeVenta) => {
+  const abrirGuia = (nota: NotaDeVenta) => {
+    setGuiaNota(nota);
+    setDespachoCantidades(nota.productos.map(() => 0));
+    setShowGuiaModal(true);
+  };
+
+    const guardarGuiaDespacho = async () => {
+    if (!guiaNota) return;
     try {
-      const neto = nota.productos.reduce(
-        (a, p) => a + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
-        0
+      const productosADespachar = guiaNota.productos
+        .map((p, idx) => ({
+          itemId: (p as any).itemId?._id || (p as any).itemId || p._id, // usar el ID real
+          nombre: p.nombre,
+          cantidad: despachoCantidades[idx] || 0,
+          precio: p.precio,
+        }))
+        .filter((p) => p.cantidad > 0);
+
+      if (productosADespachar.length === 0) {
+        alert("Ingresa al menos una cantidad a despachar");
+        return;
+      }
+
+      await api.post(`/guias`, {
+        notaId: guiaNota._id,
+        productos: productosADespachar,
+      });
+
+      alert("Guía de despacho creada correctamente");
+      setShowGuiaModal(false);
+      cargarNotas();
+    } catch (err) {
+      console.error("Error guardando guía de despacho:", err);
+      alert("Error al guardar la guía");
+    }
+  };
+
+  const totalGuia = () => {
+    if (!guiaNota) return 0;
+    return guiaNota.productos.reduce(
+      (acc, p, idx) => acc + (despachoCantidades[idx] || 0) * p.precio,
+      0
+    );
+  };
+
+  const imprimirGuia = async () => {
+    if (!guiaNota) return;
+
+    try {
+      // Generar PDF usando tu util
+      const buffer = generarGuiaPDF(
+        guiaNota.cliente,
+        guiaNota.productos.map((p, idx) => ({
+          ...p,
+          cantidad: despachoCantidades[idx] || 0,
+          total: (despachoCantidades[idx] || 0) * p.precio,
+        })),
+        {
+          tipo: "guia",
+          numeroDocumento: guiaNota._id,
+          direccionCliente: guiaNota.direccion,
+        }
       );
 
-      const res = await api.post("/pagos/create-checkout-session", {
-        notaId: nota._id,
-        monto: neto,
-        });
-
-        const checkoutUrl = res.data.url;
-
-      if (checkoutUrl) {
-        // ✅ 1. Abrir directamente Stripe Checkout
-        window.open(checkoutUrl, "_blank");
-
-        // ✅ 2. Copiar link al portapapeles
-        await navigator.clipboard.writeText(checkoutUrl);
-        alert("✅ Link copiado al portapapeles, envíalo al cliente.");
-
-        // ✅ 3. Preparar link para WhatsApp
-        const mensaje = `Hola 👋, aquí está el link para pagar su nota de venta #${nota._id}: ${checkoutUrl}`;
-        const waUrl = `https://wa.me/569XXXXXXXX?text=${encodeURIComponent(mensaje)}`;
-
-        // abrir en nueva pestaña (se puede comentar si no lo quieres automático)
-        window.open(waUrl, "_blank");
-      }
-
-
-      if (res.data.url) {
-        window.location.href = res.data.url; // redirige al checkout de Stripe
-      }
+      // Crear Blob y abrir en nueva ventana
+      const blob = new Blob([buffer], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
     } catch (err) {
-      console.error("Error iniciando pago:", err);
-      alert("No se pudo iniciar el pago");
+      console.error("Error generando PDF:", err);
+      alert("No se pudo generar la Guía en PDF");
     }
   };
 
@@ -207,7 +277,7 @@ export default function NotasDeVenta() {
         </div>
       )}
 
-      {/* Tabla */}
+      {/* Tabla de notas */}
       <div className="flex-1 shadow-md rounded-lg relative overflow-x-auto bg-white">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100 border-b border-gray-300">
@@ -268,7 +338,6 @@ export default function NotasDeVenta() {
                       <span className="text-gray-400 text-sm">No disponible</span>
                     )}
                   </td>
-                  {/* ✅ ÚNICA columna de acciones */}
                   <td className="p-3">
                     {!estaAnulada ? (
                       <div className="flex items-center gap-2">
@@ -289,11 +358,20 @@ export default function NotasDeVenta() {
                           <CreditCard className="w-4 h-4" />
                           {payingId === nota._id ? "Procesando..." : "Pagar"}
                         </button>
+                      <button
+  onClick={() => window.location.href = `/guias/${nota._id}`}
+  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center gap-1"
+  title="Ver / Crear Guías"
+>
+  <Truck className="w-4 h-4" />
+  Guías
+</button>
                       </div>
                     ) : (
                       <span className="text-red-600 font-semibold">Anulada</span>
                     )}
                   </td>
+                  
                 </tr>
               );
             })}
@@ -305,7 +383,6 @@ export default function NotasDeVenta() {
               </tr>
             )}
           </tbody>
-
           <tfoot className="bg-gray-100">
             <tr>
               <td colSpan={4} className="p-3 text-right font-bold text-gray-700">
@@ -367,6 +444,73 @@ export default function NotasDeVenta() {
           </div>
         </div>
       )}
+
+
+            {/* Modal Guía de Despacho */}
+      {showGuiaModal && guiaNota && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowGuiaModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-2/3 max-h-[80vh] p-4 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Crear Guía de Despacho - {guiaNota.cliente}</h3>
+              <button
+                onClick={imprimirGuia}
+                className="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-800"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir
+              </button>
+            </div>
+            {guiaNota.productos.map((p, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-2">
+                <span className="w-1/2">{p.nombre}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={p.cantidad - (p.despachado || 0)}
+                  value={despachoCantidades[idx]}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setDespachoCantidades((prev) => {
+                      const copy = [...prev];
+                      copy[idx] = val;
+                      return copy;
+                    });
+                  }}
+                  className="border rounded px-2 py-1 w-24"
+                />
+                <span>de {p.cantidad - (p.despachado || 0)} disponible</span>
+                <span className="ml-auto font-semibold">
+                  ${((despachoCantidades[idx] || 0) * p.precio).toLocaleString("es-CL")}
+                </span>
+              </div>
+            ))}
+            <div className="flex justify-end gap-2 mt-4 font-bold text-gray-800">
+              Total: ${totalGuia().toLocaleString("es-CL")}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setShowGuiaModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarGuiaDespacho}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Guardar Guía
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

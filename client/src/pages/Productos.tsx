@@ -25,6 +25,9 @@ export default function InventarioVista() {
 
   const loaderRef = useRef<HTMLDivElement>(null);
 
+  // Nuevo estado para el filtro de stock
+  const [mostrarSinStock, setMostrarSinStock] = useState(false);
+
   // Función para traer items del backend
   const fetchItems = async (reset = false) => {
     if (page > pages) return;
@@ -32,7 +35,7 @@ export default function InventarioVista() {
     setLoading(true);
     try {
       const res = await api.get('/items', {
-        params: { search: '', page, limit } // search backend vacío, filtro con Fuse
+        params: { search: '', page, limit }
       });
 
       const nuevosItems = Array.isArray(res.data.items) ? res.data.items : [];
@@ -48,7 +51,7 @@ export default function InventarioVista() {
   // Fetch inicial o cuando cambia search
   useEffect(() => {
     setPage(1);
-    fetchItems(true); // resetear items
+    fetchItems(true);
   }, [search]);
 
   // Infinite scroll
@@ -90,6 +93,11 @@ export default function InventarioVista() {
   const filteredItems = useMemo(() => {
     let result = Array.isArray(items) ? items : [];
 
+    // 🔹 Aplica filtro solo si el checkbox está desmarcado
+    if (!mostrarSinStock) {
+      result = result.filter(item => item.cantidad > 0);
+    }
+
     if (search.trim() !== '') {
       result = fuse.search(search).map(r => r.item);
     }
@@ -97,13 +105,15 @@ export default function InventarioVista() {
     result = [...result].sort((a, b) => {
       const valA = a[sortBy];
       const valB = b[sortBy];
-      if (typeof valA === 'number' && typeof valB === 'number') return ascending ? valA - valB : valB - valA;
-      if (typeof valA === 'string' && typeof valB === 'string') return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      if (typeof valA === 'number' && typeof valB === 'number')
+        return ascending ? valA - valB : valB - valA;
+      if (typeof valA === 'string' && typeof valB === 'string')
+        return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
       return 0;
     });
 
     return result;
-  }, [items, search, sortBy, ascending, fuse]);
+  }, [items, search, sortBy, ascending, fuse, mostrarSinStock]);
 
   // Scraping Construmart intacto
   const matchProductos = (nombreLocal: string, productosCM: ResultadoConstrumart[]) => {
@@ -132,7 +142,7 @@ export default function InventarioVista() {
   return (
     <div className="p-8">
       <h2 className="text-2xl font-bold mb-6">Productos Actuales</h2>
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 flex items-center gap-6">
         <input
           type="text"
           placeholder="Buscar producto..."
@@ -140,6 +150,16 @@ export default function InventarioVista() {
           onChange={e => setSearch(e.target.value)}
           className="border rounded p-2 w-full max-w-md"
         />
+
+        {/* 🔹 Checkbox para mostrar/ocultar sin stock */}
+        <label className="flex items-center gap-2 text-gray-700">
+          <input
+            type="checkbox"
+            checked={mostrarSinStock}
+            onChange={() => setMostrarSinStock(prev => !prev)}
+          />
+          Mostrar también sin stock
+        </label>
       </div>
 
       <div className="overflow-x-auto">
@@ -168,7 +188,9 @@ export default function InventarioVista() {
                     <td className="py-3 px-4">{item.nombre}</td>
                     <td className="py-3 px-4 text-center">{item.cantidad}</td>
                     <td className="py-3 px-4 text-center">
-                      {totalComprometidos > 0 ? <span className="text-red-600 font-semibold">{totalComprometidos}</span> : <span className="text-gray-400">—</span>}
+                      {totalComprometidos > 0
+                        ? <span className="text-red-600 font-semibold">{totalComprometidos}</span>
+                        : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="py-3 px-4 text-center">{item.cantidad - totalComprometidos}</td>
                     <td className="py-3 px-4 text-center">{formatPrice(precioLocal)}</td>

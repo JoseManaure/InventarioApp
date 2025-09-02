@@ -73,20 +73,22 @@ export function generarGuiaPDF(
     ['Cliente:', cliente],
     ['RUT:', extras.rutCliente || '__________________'],
     ['Giro:', extras.giroCliente || '__________________'],
-    ['Dirección:', extras.direccion || '__________________'],
-    ['Cel.:', extras.telefonoCliente || ''],
+    ['Direccion:', extras.direccionCliente || '__________________'],
+    ['Comuna:', extras.comunaCliente || '__________________'],
+    ['Ciudad:', extras.ciudadCliente || 'Santiago'],
     ['Mail:', extras.emailCliente || '__________________'],
   ];
 
   const datosDerecha = [
     ['At. Sr.:', extras.atencion || '__________________'],
     ['Válida:', '3 días'],
-    ['Direccion:', extras.direccionCliente || '__________________'],
-    ['Comuna:', extras.comunaCliente || '__________________'],
-    ['Ciudad:', extras.ciudadCliente || 'Santiago'],
+    ['Dirección:', extras.direccion || '__________________'],
+    ['Cel.:', extras.telefonoCliente || ''],
     ['Entrega:', extras.fechaEntrega || 'Por definir'],
     ['Pago:', extras.metodoPago || 'Contado'],
+    [' ', ' ']
   ];
+  
 
   let yCliente = 70;
   for (let i = 0; i < datosIzquierda.length; i++) {

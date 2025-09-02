@@ -17,6 +17,8 @@ import ComparadorPrecios from './pages/CompararPrecios';
 import VerBorradores from './pages/VerBorradores';
 import EditarBorrador from './pages/EditarBorrador';
 import DashboardVentas from './pages/DashboardVentas';
+import GuiasDespacho from './pages/GuiasDespacho';
+
 
 import api, { setAuthToken } from './api/api';
 
@@ -57,7 +59,7 @@ function App() {
     <Route path="cotizaciones/:id" element={<Cotizaciones />} />
     <Route path="cotizacion/:id/ver" element={<VistaCotizacion />} />
     <Route path="cotizaciones/nueva" element={<Cotizaciones />} />
-
+    <Route path="guias/:notaId" element={<GuiasDespacho />} />
     <Route path="ver-cotizaciones" element={<VerCotizaciones />} />
     <Route path="facturas" element={<Facturas />} />
     <Route path="facturas/nueva" element={<FacturaCompra />} />
