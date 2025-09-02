@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api', // o usa import.meta.env.VITE_API_URL si ya tienes .env
+baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
 });
 
 export const setAuthToken = (token: string | null) => {
