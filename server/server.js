@@ -10,6 +10,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// CORS: permite solo tu frontend en producción
+const allowedOrigin = process.env.CORS_ORIGIN; // ej: https://tuapp.vercel.app
+app.use(cors({
+origin: (origin, cb) => {
+// Permite requests de herramientas (sin origin) y del dominio permitido
+if (!origin || origin === allowedOrigin) return cb(null, true);
+return cb(new Error('CORS bloqueado'));
+},
+credentials: true,
+}));
+
+
+// Salud (para Render)
+app.get('/health', (_req, res) => res.status(200).send('ok'));
+
+
+
 
 // ✅ Router del comparador
 const comparador = require('./routes/comparador');
@@ -18,6 +35,8 @@ const compararPreciosRouter = require('./routes/comparar-precios');
 
 const pagosRouter = require('./routes/pagos');
 
+
+const guiasRoutes = require("./routes/guias");
 
 // ✅ Carpeta de uploads (para guardar PDFs)
 const uploadPath = path.join(__dirname, 'uploads/pdfs');
@@ -37,7 +56,6 @@ const upload = multer({ storage });
 
 
 
-
 // ✅ Servir PDFs de manera pública
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -49,6 +67,9 @@ app.use('/api/cotizaciones', require('./routes/cotizaciones'));
 app.use('/api/facturas', require('./routes/facturas'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/pagos', pagosRouter);
+app.use("/api/guias", guiasRoutes);
+
+
 
 const Cotizacion = require('./models/Cotizacion');
 
