@@ -42,24 +42,27 @@ function generarGuiaPDF(cliente, productos, extras) {
   doc.text(`N - 000${numero}`, 160, 55);
   doc.text(`Fecha: ${fechaHoy}`, 160, 60);
 
-  const datosIzquierda = [
-    ['Cliente:', cliente],
-    ['RUT:', extras.rutCliente || '—'],
-    ['Giro:', extras.giroCliente || '—'],
-    ['Dirección:', extras.direccionCliente || '—'],
-    ['Comuna:', extras.comunaCliente || '—'],
-    ['Ciudad:', extras.ciudadCliente || 'Santiago'],
-  ];
-
-  const datosDerecha = [
-    ['At. Sr.:', extras.atencion || '—'],
-    ['Válida:', '3 días'],
-    ['Mail:', extras.emailCliente || '—'],
-    ['Entrega:', extras.direccion || '—'],
-    ['Cel.:', extras.telefonoCliente || '—'],
-    ['Entrega:', extras.fechaEntrega || 'Por definir'],
-    ['Pago:', extras.metodoPago || 'Contado'],
-  ];
+    // Datos cliente en dos columnas
+    const datosIzquierda = [
+      ['Cliente:', cliente],
+      ['RUT:', extras.rutCliente || '__________________'],
+      ['Giro:', extras.giroCliente || '__________________'],
+      ['Direccion:', extras.direccionCliente || '__________________'],
+      ['Comuna:', extras.comunaCliente || '__________________'],
+      ['Ciudad:', extras.ciudadCliente || 'Santiago'],
+      ['Mail:', extras.emailCliente || '__________________'],
+    ];
+  
+    const datosDerecha = [
+      ['At. Sr.:', extras.atencion || '__________________'],
+      ['Válida:', '3 días'],
+      ['Dirección:', extras.direccion || '__________________'],
+      ['Cel.:', extras.telefonoCliente || ''],
+      ['Entrega:', extras.fechaEntrega || 'Por definir'],
+      ['Pago:', extras.metodoPago || 'Contado'],
+      [' ', ' ']
+    ];
+    
 
   let yCliente = 70;
   for (let i = 0; i < datosIzquierda.length; i++) {

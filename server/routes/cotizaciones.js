@@ -314,7 +314,19 @@ router.put('/:id', verifyToken, async (req, res) => {
   }
 });
 
-
+router.put('/:id/anular', verifyToken, async (req, res) => {
+  try {
+    const cotizacion = await Cotizacion.findByIdAndUpdate(
+      req.params.id,
+      { anulada: true },
+      { new: true }
+    );
+    if (!cotizacion) return res.status(404).json({ error: 'No encontrada' });
+    res.json({ ok: true, cotizacion });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al anular la cotización' });
+  }
+});
 
 
 
