@@ -2,8 +2,19 @@ import { useEffect, useState } from 'react';
 import api from '../api/api';
 import { useNavigate } from 'react-router-dom';
 
+
+interface Borrador {
+  _id: string;
+  cliente: string;
+  fechaHoy: string;
+  total: number;
+}
+
+
 export default function Borradores() {
-  const [borradores, setBorradores] = useState([]);
+  
+  const [borradores, setBorradores] = useState<Borrador[]>([]);
+
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -50,17 +50,19 @@ export default function DashboardVentasFijo() {
     setLoading(true);
     try {
       const res = await api.get("/cotizaciones");
-      const notasFiltradas = res.data.filter((c: NotaDeVenta) => c.tipo === "nota");
+      const notasFiltradas: NotaDeVenta[] = res.data.filter((c: NotaDeVenta) => c.tipo === "nota");
       setNotas(notasFiltradas);
 
       // clientes únicos
       const clientesSet = new Set<string>();
-      notasFiltradas.forEach(n => clientesSet.add(n.cliente));
+      notasFiltradas.forEach((n: NotaDeVenta) => clientesSet.add(n.cliente));
       setClientesDisponibles(Array.from(clientesSet));
 
       // productos únicos
       const productosSet = new Set<string>();
-      notasFiltradas.forEach(n => n.productos.forEach(p => productosSet.add(p.nombre)));
+      notasFiltradas.forEach((n: NotaDeVenta) =>
+        n.productos.forEach((p: Producto) => productosSet.add(p.nombre))
+      );
       setProductosDisponibles(Array.from(productosSet));
 
     } catch (err) {
@@ -70,17 +72,17 @@ export default function DashboardVentasFijo() {
     }
   };
 
-  const notasFiltradas = notas.filter(nota => {
+  const notasFiltradas = notas.filter((nota: NotaDeVenta) => {
     if (mesFiltro && nota.fechaEntrega.slice(0,7)!==mesFiltro) return false;
     if (clienteFiltro && nota.cliente!==clienteFiltro) return false;
-    if (productoFiltro && !nota.productos.some(p=>p.nombre===productoFiltro)) return false;
+    if (productoFiltro && !nota.productos.some((p: Producto)=>p.nombre===productoFiltro)) return false;
     return true;
   });
 
   const calcularDashboard = () => {
     // Totales
     let neto = 0, iva=0, total=0;
-    notasFiltradas.forEach(nota=>{
+    notasFiltradas.forEach((nota: NotaDeVenta)=>{
       if(!nota.anulada){
         const totalNota = nota.productos.reduce((acc,p)=>acc + Number(p.cantidad)*Number(p.precio),0);
         const ivaNota = Math.round(totalNota*0.19);
@@ -95,7 +97,7 @@ export default function DashboardVentasFijo() {
 
     // Ventas por mes
     const ventasPorMes:Record<string,number>={};
-    notasFiltradas.forEach(nota=>{
+    notasFiltradas.forEach((nota: NotaDeVenta)=>{
       const mes = nota.fechaEntrega.slice(0,7);
       const totalNota = nota.productos.reduce((acc,p)=>acc + Number(p.cantidad)*Number(p.precio),0);
       ventasPorMes[mes] = (ventasPorMes[mes]||0)+totalNota;
@@ -104,8 +106,8 @@ export default function DashboardVentasFijo() {
 
     // Top productos
     const productosMap:Record<string,number>={};
-    notasFiltradas.forEach(nota=>{
-      nota.productos.forEach(p=>{
+    notasFiltradas.forEach((nota: NotaDeVenta)=>{
+      nota.productos.forEach((p: Producto)=>{
         productosMap[p.nombre] = (productosMap[p.nombre]||0)+ Number(p.cantidad)*Number(p.precio);
       });
     });
@@ -191,7 +193,7 @@ export default function DashboardVentasFijo() {
               </tr>
             </thead>
             <tbody>
-              {notasFiltradas.map(nota=>{
+              {notasFiltradas.map((nota: NotaDeVenta)=>{
                 const neto = nota.productos.reduce((acc,p)=>acc + Number(p.cantidad)*Number(p.precio),0);
                 const iva = Math.round(neto*0.19);
                 const total = neto + iva;

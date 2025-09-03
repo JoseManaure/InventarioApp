@@ -65,8 +65,9 @@ function App() {
     <Route path="facturas/nueva" element={<FacturaCompra />} />
     <Route path="productos" element={<Productos />} />
     <Route path="notas" element={<NotasDeVenta />} />
-    <Route path="comparador" element={<ComparadorPrecios/>} />
-    <Route path="comparar" element={<ComparadorPrecios />} />
+    <Route path="comparador" element={<ComparadorPrecios nombreProducto="Producto X" precioLocal={1000} />} />
+      <Route path="comparar" element={<ComparadorPrecios nombreProducto="Producto Y" precioLocal={2000} />} />
+
   </Route>
 </Routes>
 

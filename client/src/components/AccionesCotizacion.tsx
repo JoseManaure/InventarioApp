@@ -1,5 +1,4 @@
 // src/components/AccionesCotizacion.tsx
-import React from 'react';
 import { CheckCircle, FileText } from 'lucide-react';
 
 interface AccionesCotizacionProps {

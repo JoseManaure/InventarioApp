@@ -152,7 +152,7 @@ export default function FacturaCompra() {
 
       {/* Datos Empresa */}
       <div className="mb-2">
-        <label className="block">Empresa</label>
+        <label className="block">Empresaa</label>
         <input
           value={empresa}
           onChange={(e) => setEmpresa(e.target.value)}

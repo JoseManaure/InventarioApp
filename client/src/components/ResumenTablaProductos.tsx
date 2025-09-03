@@ -1,5 +1,5 @@
 // src/components/ResumenTablaProductos.tsx
-import React, { memo, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
 
 interface ProductoResumen {
