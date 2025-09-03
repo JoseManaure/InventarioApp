@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState } from 'react';
 import api from '../api/api';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,7 +6,7 @@ import * as XLSX from 'xlsx';
 export default function Inventario() {
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState<string[]>([]);
-  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [, setExcelFile] = useState<File | null>(null);
   const [progreso, setProgreso] = useState(0); // ✅ progreso en %
   const [cargando, setCargando] = useState(false);
 

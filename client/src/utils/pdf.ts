@@ -14,8 +14,8 @@ export function generarGuiaPDF(
   cliente: string,
   productos: ProductoPDF[],
   extras: {
-    tipo:string;
-    direccion:string;
+    tipo: string;
+    direccion: string;
     fechaEntrega: string;
     metodoPago: string;
     tipoDocumento: string;
@@ -28,8 +28,8 @@ export function generarGuiaPDF(
     atencion?: string;
     emailCliente?: string;
     telefonoCliente?: string;
-    formaPago?:string;
-      nota?:string;
+    formaPago?: string;
+    nota?: string;
   }
 ) {
   const doc = new jsPDF();
@@ -88,7 +88,6 @@ export function generarGuiaPDF(
     ['Pago:', extras.metodoPago || 'Contado'],
     [' ', ' ']
   ];
-  
 
   let yCliente = 70;
   for (let i = 0; i < datosIzquierda.length; i++) {
@@ -108,82 +107,76 @@ export function generarGuiaPDF(
     yCliente += 6;
   }
 
-  // Tabla productos con mejor estilo
-autoTable(doc, {
-  startY: yCliente + 5,
-  head: [['Item', 'Cant.', 'Descripción', 'Valor Unit.', 'Total']],
-  body: productos.map((p, i) => [
-    `${i + 1}°`,
-    p.cantidad,
-    p.nombre,
-    `$${p.precio.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
-    `$${p.total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
-  ]),
-  styles: { 
-    fontSize: 9, 
-    halign: 'center',
-    textColor: [40, 40, 40]
-  },
-  headStyles: { 
-    fillColor: [0, 102, 204], 
-    textColor: [255, 255, 255], 
-    fontStyle: 'bold'
-  },
-  alternateRowStyles: { 
-    fillColor: [235, 245, 255]
-  },
-  columnStyles: {
-    3: { halign: 'right' },
-    4: { halign: 'right' },
-  },
-});
+  // Tabla productos
+  const tablaProductos = autoTable(doc, {
+    startY: yCliente + 5,
+    head: [['Item', 'Cant.', 'Descripción', 'Valor Unit.', 'Total']],
+    body: productos.map((p, i) => [
+      `${i + 1}°`,
+      p.cantidad,
+      p.nombre,
+      `$${p.precio.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
+      `$${p.total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
+    ]),
+    styles: { 
+      fontSize: 9, 
+      halign: 'center',
+      textColor: [40, 40, 40]
+    },
+    headStyles: { 
+      fillColor: [0, 102, 204], 
+      textColor: [255, 255, 255], 
+      fontStyle: 'bold'
+    },
+    alternateRowStyles: { 
+      fillColor: [235, 245, 255]
+    },
+    columnStyles: {
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+    },
+  });
 
+  // Totales
+  const subtotal = productos.reduce((acc, p) => acc + p.total, 0);
+  const iva = Math.round(subtotal * 0.19);
+  const total = Math.round(subtotal + iva);
 
+  const tablaTotales = autoTable(doc, {
+    startY: tablaProductos.finalY + 10,
+    body: [
+      ['Neto', `$${subtotal.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
+      ['IVA (19%)', `$${iva.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
+      ['Total', `$${total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`]
+    ],
+    styles: { fontSize: 10, textColor: [40, 40, 40] },
+    columnStyles: {
+      0: { halign: 'right', cellPadding: { right: 15 } },
+      1: { halign: 'right', cellWidth: 50 },
+    },
+    theme: 'plain',
+    didParseCell: (data) => {
+      if (data.row.index === 2) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.textColor = [0, 100, 0];
+      }
+    },
+  });
 
-// Cálculo totales
-const subtotal = productos.reduce((acc, p) => acc + p.total, 0);
-const iva = Math.round(subtotal * 0.19);
-const total = Math.round(subtotal + iva);
+  const finalY = tablaTotales.finalY || yCliente + 50;
 
-// 👉 Resumen (Neto, IVA, Total)
-autoTable(doc, {
-  startY: doc.lastAutoTable.finalY + 10,
-  body: [
-    ['Neto', `$${subtotal.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
-    ['IVA (19%)', `$${iva.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
-    ['Total', `$${total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`]
-  ],
-  styles: { fontSize: 10, textColor: [40, 40, 40] },
-  columnStyles: {
-    0: { halign: 'right', cellPadding: { right: 15 } },
-    1: { halign: 'right', cellWidth: 50 },
-  },
-  theme: 'plain',
-  didParseCell: (data) => {
-    if (data.row.index === 2) { // Total
-      data.cell.styles.fontStyle = 'bold';
-      data.cell.styles.textColor = [0, 100, 0];
-    }
-  },
-});
+  // Forma de pago y nota
+  let yNotas = finalY + 35;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Forma de Pago:', 10, yNotas);
+  doc.setFont('helvetica', 'normal');
+  doc.text(extras.formaPago || '__________________', 50, yNotas);
 
-// @ts-ignore
-const finalY: number = doc.lastAutoTable?.finalY || yCliente + 50;
-
-
-// Forma de pago y nota
-let yNotas = finalY + 35;
-doc.setFont('helvetica', 'bold');
-doc.text('Forma de Pago:', 10, yNotas);
-doc.setFont('helvetica', 'normal');
-doc.text(extras.formaPago || '__________________', 50, yNotas);
-
-yNotas += 6;
-doc.setFont('helvetica', 'bold');
-doc.text('Nota:', 10, yNotas);
-doc.setFont('helvetica', 'normal');
-doc.text(extras.nota || '__________________', 50, yNotas);
-
+  yNotas += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Nota:', 10, yNotas);
+  doc.setFont('helvetica', 'normal');
+  doc.text(extras.nota || '__________________', 50, yNotas);
 
   // Transferencia
   yNotas += 10;
@@ -197,9 +190,7 @@ doc.text(extras.nota || '__________________', 50, yNotas);
   doc.text('Cta.Vista N°21670187273 Bco.Estado', 10, yNotas + 12);
   doc.text('Rut. 77 143 635-8', 10, yNotas + 18);
   doc.setTextColor(0, 0, 255);
-  doc.textWithLink('comercialrasiva@gmail.com', 10, yNotas + 24, {
-    url: 'mailto:comercialrasiva@gmail.com',
-  });
+  doc.textWithLink('comercialrasiva@gmail.com', 10, yNotas + 24, { url: 'mailto:comercialrasiva@gmail.com' });
 
   return doc.output('blob');
 }

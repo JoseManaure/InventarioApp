@@ -5,7 +5,7 @@ import { Plus, Trash2, FileText } from "lucide-react";
 
 interface ProductoGuia {
   _id: string;
-  itemId: { _id: string; nombre: string };
+  itemId?: { _id: string; nombre: string }; // Puede ser undefined
   nombre: string;
   cantidad: number;
   precio: number;
@@ -33,22 +33,21 @@ export default function GuiasDespacho() {
   const [nuevaGuia, setNuevaGuia] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    cargarDatos();
-  }, [notaId]);
-
   const cargarDatos = useCallback(async () => {
+    if (!notaId) return;
     setLoading(true);
     try {
       const resNota = await api.get(`/cotizaciones/${notaId}`);
-      const notaData = resNota.data;
+      const notaData: Nota = resNota.data;
 
       const resGuias = await api.get(`/guias/nota/${notaId}`);
       const guiasData: GuiaDespacho[] = resGuias.data || [];
 
-      const productosConEntregado = (notaData.productos || []).map((p: any) => {
+      const productosConEntregado = (notaData.productos || []).map((p) => {
         const entregado = guiasData.reduce((acc, g) => {
-          const prod = g.productos.find((gp) => gp.itemId?._id === p.itemId?._id);
+          const prod = g.productos.find(
+            (gp) => gp.itemId?._id === p.itemId?._id
+          );
           return acc + (prod?.cantidad || 0);
         }, 0);
         return { ...p, entregado };
@@ -63,6 +62,10 @@ export default function GuiasDespacho() {
       setLoading(false);
     }
   }, [notaId]);
+
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
 
   const handleCantidadChange = (itemId: string, value: number) => {
     setNuevaGuia((prev) => ({ ...prev, [itemId]: value }));
@@ -102,7 +105,9 @@ export default function GuiasDespacho() {
       if (nota) {
         const productosActualizados = nota.productos.map((p) => {
           const key = p.itemId?._id || p._id;
-          const entregadoEnEstaGuia = nuevaGuiaCreada.productos.find((np) => np.itemId === key)?.cantidad || 0;
+          const entregadoEnEstaGuia =
+            nuevaGuiaCreada.productos.find((np) => np.itemId === key)
+              ?.cantidad || 0;
           return { ...p, entregado: (p.entregado || 0) + entregadoEnEstaGuia };
         });
         setNota({ ...nota, productos: productosActualizados });
@@ -142,86 +147,88 @@ export default function GuiasDespacho() {
         </Link>
       </div>
 
-      {/* Resumen de Despacho */}
       {nota && (
-        <div className="p-4 border rounded-lg shadow bg-white">
-          <h2 className="text-xl font-semibold mb-4">Resumen de Despacho</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto border-collapse">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 border">Producto</th>
-                  <th className="p-2 border text-center">Vendido</th>
-                  <th className="p-2 border text-center">Despachado</th>
-                  <th className="p-2 border text-center">Pendiente</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nota.productos.map((p) => {
-                  const pendiente = p.cantidad - (p.entregado || 0);
-                  const key = p.itemId?._id || p._id;
-                  return (
-                    <tr key={key} className="hover:bg-gray-50">
-                      <td className="p-2 border">{p.nombre}</td>
-                      <td className="p-2 border text-center">{p.cantidad}</td>
-                      <td className="p-2 border text-center">{p.entregado || 0}</td>
-                      <td
-                        className={`p-2 border text-center font-semibold ${
-                          pendiente === 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {pendiente}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <>
+          {/* Resumen de Despacho */}
+          <div className="p-4 border rounded-lg shadow bg-white">
+            <h2 className="text-xl font-semibold mb-4">Resumen de Despacho</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full table-auto border-collapse">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-2 border">Producto</th>
+                    <th className="p-2 border text-center">Vendido</th>
+                    <th className="p-2 border text-center">Despachado</th>
+                    <th className="p-2 border text-center">Pendiente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nota.productos.map((p) => {
+                    const pendiente = p.cantidad - (p.entregado || 0);
+                    const key = p.itemId?._id || p._id;
+                    return (
+                      <tr key={key} className="hover:bg-gray-50">
+                        <td className="p-2 border">{p.nombre}</td>
+                        <td className="p-2 border text-center">{p.cantidad}</td>
+                        <td className="p-2 border text-center">{p.entregado || 0}</td>
+                        <td
+                          className={`p-2 border text-center font-semibold ${
+                            pendiente === 0 ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {pendiente}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {nota.productos.every((p) => p.cantidad - (p.entregado || 0) === 0) && (
+              <p className="mt-2 text-green-700 font-bold">
+                Todos los productos han sido despachados ✅
+              </p>
+            )}
           </div>
-          {nota.productos.every((p) => p.cantidad - (p.entregado || 0) === 0) && (
-            <p className="mt-2 text-green-700 font-bold">Todos los productos han sido despachados ✅</p>
-          )}
-        </div>
-      )}
 
-      {/* Crear nueva guía */}
-      {nota && (
-        <div className="p-4 border rounded-lg shadow bg-white">
-          <h2 className="text-xl font-semibold mb-4">Crear nueva guía</h2>
-          <div className="space-y-2">
-            {nota.productos.map((p) => {
-              const key = p.itemId?._id || p._id;
-              const maxDespachable = p.cantidad - (p.entregado || 0);
-              return (
-                <div
-                  key={key}
-                  className="flex flex-wrap items-center gap-2 p-2 border rounded hover:bg-gray-50"
-                >
-                  <span className="flex-1 font-medium">{p.nombre}</span>
-                  <span className="text-gray-600">Vendidos: {p.cantidad}</span>
-                  <span className="text-gray-600">Despachados: {p.entregado || 0}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={maxDespachable}
-                    value={nuevaGuia[key] || 0}
-                    onChange={(e) =>
-                      handleCantidadChange(key, Number(e.target.value))
-                    }
-                    className="border rounded px-2 w-20"
-                  />
-                  <span className="text-gray-600">Disponibles: {maxDespachable}</span>
-                </div>
-              );
-            })}
+          {/* Crear nueva guía */}
+          <div className="p-4 border rounded-lg shadow bg-white">
+            <h2 className="text-xl font-semibold mb-4">Crear nueva guía</h2>
+            <div className="space-y-2">
+              {nota.productos.map((p) => {
+                const key = p.itemId?._id || p._id;
+                const maxDespachable = p.cantidad - (p.entregado || 0);
+                return (
+                  <div
+                    key={key}
+                    className="flex flex-wrap items-center gap-2 p-2 border rounded hover:bg-gray-50"
+                  >
+                    <span className="flex-1 font-medium">{p.nombre}</span>
+                    <span className="text-gray-600">Vendidos: {p.cantidad}</span>
+                    <span className="text-gray-600">Despachados: {p.entregado || 0}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={maxDespachable}
+                      value={nuevaGuia[key] || 0}
+                      onChange={(e) =>
+                        handleCantidadChange(key, Number(e.target.value))
+                      }
+                      className="border rounded px-2 w-20"
+                    />
+                    <span className="text-gray-600">Disponibles: {maxDespachable}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={crearGuia}
+              className="mt-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+            >
+              <Plus className="w-4 h-4" /> Crear Guía
+            </button>
           </div>
-          <button
-            onClick={crearGuia}
-            className="mt-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
-          >
-            <Plus className="w-4 h-4" /> Crear Guía
-          </button>
-        </div>
+        </>
       )}
 
       {/* Guías existentes */}
@@ -237,13 +244,17 @@ export default function GuiasDespacho() {
               <h3 className="font-semibold">Guía N° {g.numero}</h3>
               <span
                 className={`px-2 py-1 rounded text-sm font-medium ${
-                  g.estado === "completada" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                  g.estado === "completada"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
                 }`}
               >
                 {g.estado}
               </span>
             </div>
-            <p className="text-gray-600 text-sm">Fecha: {new Date(g.fecha).toLocaleDateString()}</p>
+            <p className="text-gray-600 text-sm">
+              Fecha: {new Date(g.fecha).toLocaleDateString()}
+            </p>
 
             <div className="overflow-x-auto mt-2">
               <table className="w-full table-auto border-collapse">
@@ -260,7 +271,9 @@ export default function GuiasDespacho() {
                     <tr key={p._id} className="hover:bg-gray-50">
                       <td className="p-2 border">{p.itemId?.nombre || p.nombre}</td>
                       <td className="p-2 border text-center">{p.cantidad}</td>
-                      <td className="p-2 border text-right">${p.precio.toLocaleString()}</td>
+                      <td className="p-2 border text-right">
+                        ${p.precio.toLocaleString()}
+                      </td>
                       <td className="p-2 border text-right">
                         ${(p.precio * p.cantidad).toLocaleString()}
                       </td>
