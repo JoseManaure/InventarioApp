@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Menu } from "@headlessui/react";
 
 interface DropdownMenuProps {
   children: React.ReactNode;

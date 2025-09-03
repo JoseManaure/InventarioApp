@@ -30,7 +30,7 @@ export default function Cotizaciones() {
   const [metodoPago, setMetodoPago] = useState('efectivo');
   const [tipo, setTipo] = useState<'cotizacion' | 'nota'>('cotizacion');
   const [correlativo, setCorrelativo] = useState<number | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
+  const [, setItems] = useState<Item[]>([]);
   const [selectedItems, setSelectedItems] = useState<Record<string, { cantidad: number; nombre: string; precio: number }>>({});
   const [busqueda, setBusqueda] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);

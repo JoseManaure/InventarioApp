@@ -1,5 +1,4 @@
 // src/components/TablaProductos.tsx
-import React from 'react';
 
 interface Producto {
   id: string;

@@ -67,6 +67,7 @@ export default function VerCotizaciones() {
 
       // ✅ Transformar productos para enviar solo itemId
       const productosActualizados = cotizacion.productos?.map((p) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         itemId: typeof p.itemId === 'object' && p.itemId !== null ? (p.itemId as any)._id : p.itemId,
         nombre: p.nombre,
         cantidad: Number(p.cantidad || 0),
@@ -88,7 +89,6 @@ export default function VerCotizaciones() {
         metodoPago: nuevaNota.metodoPago,
         tipoDocumento: 'nota',
         numeroDocumento: nuevaNota.numeroDocumento,
-        cotizacionBaseNumero: cotizacion.numero,
         rutCliente: nuevaNota.rutCliente,
         giroCliente: nuevaNota.giroCliente,
         direccionCliente: nuevaNota.direccionCliente,

@@ -27,7 +27,7 @@ interface NotaDeVenta {
 
 export default function NotasDeVenta() {
   const [notas, setNotas] = useState<NotaDeVenta[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressVisible, setProgressVisible] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState<string>(() => {
@@ -40,7 +40,7 @@ export default function NotasDeVenta() {
   const [payingId, setPayingId] = useState<string | null>(null);
 
   const [showGuiaModal, setShowGuiaModal] = useState(false);
-  const [guiaNota, setGuiaNota] = useState<NotaDeVenta | null>(null);
+  const [guiaNota, ] = useState<NotaDeVenta | null>(null);
   const [despachoCantidades, setDespachoCantidades] = useState<number[]>([]);
 
   const notasPorPagina = 5;
@@ -180,6 +180,7 @@ export default function NotasDeVenta() {
     // Preparar productos a despachar con tipos correctos
     const productosADespachar = guiaNota.productos
       .map((p, idx) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         itemId: (p as any).itemId?._id || (p as any)._id, // usar el ID real
         nombre: p.nombre,
         cantidad: despachoCantidades[idx] || 0,

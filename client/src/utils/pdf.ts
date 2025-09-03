@@ -107,8 +107,8 @@ export function generarGuiaPDF(
     yCliente += 6;
   }
 
-  // Tabla productos
-  const tablaProductos = autoTable(doc, {
+  // ========= Tabla de productos =========
+  autoTable(doc, {
     startY: yCliente + 5,
     head: [['Item', 'Cant.', 'Descripción', 'Valor Unit.', 'Total']],
     body: productos.map((p, i) => [
@@ -118,17 +118,17 @@ export function generarGuiaPDF(
       `$${p.precio.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
       `$${p.total.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`,
     ]),
-    styles: { 
-      fontSize: 9, 
+    styles: {
+      fontSize: 9,
       halign: 'center',
       textColor: [40, 40, 40]
     },
-    headStyles: { 
-      fillColor: [0, 102, 204], 
-      textColor: [255, 255, 255], 
+    headStyles: {
+      fillColor: [0, 102, 204],
+      textColor: [255, 255, 255],
       fontStyle: 'bold'
     },
-    alternateRowStyles: { 
+    alternateRowStyles: {
       fillColor: [235, 245, 255]
     },
     columnStyles: {
@@ -137,13 +137,16 @@ export function generarGuiaPDF(
     },
   });
 
-  // Totales
+  // <- AQUÍ leemos la última tabla pintada
+  const finalYProductos: number = (doc as any).lastAutoTable?.finalY ?? (yCliente + 20);
+
+  // ========= Totales =========
   const subtotal = productos.reduce((acc, p) => acc + p.total, 0);
   const iva = Math.round(subtotal * 0.19);
   const total = Math.round(subtotal + iva);
 
-  const tablaTotales = autoTable(doc, {
-    startY: tablaProductos.finalY + 10,
+  autoTable(doc, {
+    startY: finalYProductos + 10,
     body: [
       ['Neto', `$${subtotal.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
       ['IVA (19%)', `$${iva.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`],
@@ -163,9 +166,9 @@ export function generarGuiaPDF(
     },
   });
 
-  const finalY = tablaTotales.finalY || yCliente + 50;
+  const finalY: number = (doc as any).lastAutoTable?.finalY ?? (yCliente + 50);
 
-  // Forma de pago y nota
+  // ========= Forma de pago y nota =========
   let yNotas = finalY + 35;
   doc.setFont('helvetica', 'bold');
   doc.text('Forma de Pago:', 10, yNotas);

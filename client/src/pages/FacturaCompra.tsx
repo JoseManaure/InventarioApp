@@ -68,6 +68,7 @@ export default function FacturaCompra() {
     valor: string | number
   ) => {
     const copia = [...productos];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (copia[index] as any)[campo] = valor;
 
     // Si selecciona nombre desde catálogo → traer precio y código

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import api from '../api/api';
 import type { Item } from '../types/Item';
-import { generarGuiaPDF } from '../utils/pdf';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import BuscadorProductos from '../components/BuscadorProductos';
@@ -26,10 +25,9 @@ export default function EditarBorrador() {
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [busqueda, setBusqueda] = useState('');
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [showPdfModal, setShowPdfModal] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [precios, setPrecios] = useState<Record<string, number>>({});
+  const [pdfUrl, ] = useState<string | null>(null);
+  const [enviando, ] = useState(false);
+  const [, setPrecios] = useState<Record<string, number>>({});
   const [giroCliente, setGiroCliente] = useState('');
   const [direccionCliente, setDireccionCliente] = useState('');
   const [comunaCliente, setComunaCliente] = useState('');
@@ -37,6 +35,7 @@ export default function EditarBorrador() {
   const [atencion, setAtencion] = useState('');
   const [emailCliente, setEmailCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [productos, setProductos] = useState<any[]>([]);
   const [preciosPersonalizados, setPreciosPersonalizados] = useState<Record<string, number>>({});
 
@@ -63,6 +62,7 @@ export default function EditarBorrador() {
         const preciosPersIniciales: Record<string, number> = {};
         const seleccionadosIniciales: Record<string, number> = {};
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d.productos || []).forEach((p: any) => {
           const idProd = p.itemId || p._id;
           preciosIniciales[idProd] = p.precio || 0;

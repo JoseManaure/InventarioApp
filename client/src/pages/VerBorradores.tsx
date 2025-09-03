@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CreditCard,
   DollarSign,
-  FileText,
   Pencil,
   Trash2
 } from 'lucide-react';

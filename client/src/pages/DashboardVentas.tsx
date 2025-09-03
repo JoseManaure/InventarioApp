@@ -142,7 +142,7 @@ export default function DashboardVentasFijo() {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie data={productosTop} dataKey="total" nameKey="nombre" outerRadius={80} label={(entry)=>entry.nombre}>
-                {productosTop.map((entry, index) => (
+                {productosTop.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6"][index % 5]} />
                 ))}
               </Pie>

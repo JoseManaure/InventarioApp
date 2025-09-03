@@ -106,7 +106,7 @@ export default function GuiasDespacho() {
         const productosActualizados = nota.productos.map((p) => {
           const key = p.itemId?._id || p._id;
           const entregadoEnEstaGuia =
-            nuevaGuiaCreada.productos.find((np) => np.itemId === key)
+            nuevaGuiaCreada.productos.find((np) => np.itemId?._id === key)
               ?.cantidad || 0;
           return { ...p, entregado: (p.entregado || 0) + entregadoEnEstaGuia };
         });
