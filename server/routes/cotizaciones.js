@@ -314,20 +314,47 @@ router.put('/:id', verifyToken, async (req, res) => {
   }
 });
 
-router.put('/:id/anular', verifyToken, async (req, res) => {
+// routes/cotizaciones.js
+router.put('/:id/anular', async (req, res) => {
   try {
-    const cotizacion = await Cotizacion.findByIdAndUpdate(
-      req.params.id,
-      { anulada: true },
-      { new: true }
-    );
-    if (!cotizacion) return res.status(404).json({ error: 'No encontrada' });
-    res.json({ ok: true, cotizacion });
+    const { id } = req.params;
+    const nota = await Cotizacion.findById(id);
+
+    if (!nota) return res.status(404).json({ error: 'Cotización no encontrada' });
+    if (nota.anulada) return res.status(400).json({ error: 'La nota ya fue anulada' });
+
+    // Solo aplicable si es tipo nota
+    if (nota.tipo === 'nota') {
+      for (const prod of nota.productos) {
+        if (!prod.itemId) continue;
+
+        const item = await Item.findById(prod.itemId);
+        if (item) {
+          // Buscar el compromiso asociado a esta nota
+          const index = item.comprometidos.findIndex(c => c.cotizacionId.toString() === nota._id.toString());
+          if (index !== -1) {
+            // Reponer stock con la cantidad comprometida
+            const cantidadComprometida = item.comprometidos[index].cantidad || 0;
+            item.stock += cantidadComprometida;
+
+            // Eliminar el compromiso de esta nota
+            item.comprometidos.splice(index, 1);
+            await item.save();
+          }
+        }
+      }
+    }
+
+    // Marcar la nota como anulada
+    nota.anulada = new Date();
+    await nota.save();
+
+    res.json({ mensaje: 'Nota anulada correctamente y stock repuesto', nota });
   } catch (err) {
-    res.status(500).json({ error: 'Error al anular la cotización' });
+    console.error(err);
+    res.status(500).json({ error: 'Error al anular la nota' });
   }
 });
-
 
 
 module.exports = router;

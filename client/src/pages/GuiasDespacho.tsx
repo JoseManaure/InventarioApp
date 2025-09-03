@@ -72,12 +72,13 @@ export default function GuiasDespacho() {
     if (!nota) return;
 
     const productosAGuardar = nota.productos
-      .filter((p) => (nuevaGuia[p.itemId?._id || p.itemId] || 0) > 0)
+      .filter((p) => (nuevaGuia[p.itemId?._id || p._id] || 0) > 0)
       .map((p) => {
+        const key = p.itemId?._id || p._id;
         const maxDespachable = p.cantidad - (p.entregado || 0);
-        const cantidad = Math.min(nuevaGuia[p.itemId?._id || p.itemId], maxDespachable);
+        const cantidad = Math.min(nuevaGuia[key] || 0, maxDespachable);
         return {
-          itemId: p.itemId?._id || p.itemId,
+          itemId: key,
           nombre: p.nombre,
           cantidad,
           precio: p.precio,
@@ -100,7 +101,8 @@ export default function GuiasDespacho() {
 
       if (nota) {
         const productosActualizados = nota.productos.map((p) => {
-          const entregadoEnEstaGuia = nuevaGuiaCreada.productos.find((np) => np.itemId === p.itemId._id)?.cantidad || 0;
+          const key = p.itemId?._id || p._id;
+          const entregadoEnEstaGuia = nuevaGuiaCreada.productos.find((np) => np.itemId === key)?.cantidad || 0;
           return { ...p, entregado: (p.entregado || 0) + entregadoEnEstaGuia };
         });
         setNota({ ...nota, productos: productosActualizados });
@@ -157,8 +159,9 @@ export default function GuiasDespacho() {
               <tbody>
                 {nota.productos.map((p) => {
                   const pendiente = p.cantidad - (p.entregado || 0);
+                  const key = p.itemId?._id || p._id;
                   return (
-                    <tr key={p.itemId?._id || p._id} className="hover:bg-gray-50">
+                    <tr key={key} className="hover:bg-gray-50">
                       <td className="p-2 border">{p.nombre}</td>
                       <td className="p-2 border text-center">{p.cantidad}</td>
                       <td className="p-2 border text-center">{p.entregado || 0}</td>
@@ -187,10 +190,11 @@ export default function GuiasDespacho() {
           <h2 className="text-xl font-semibold mb-4">Crear nueva guía</h2>
           <div className="space-y-2">
             {nota.productos.map((p) => {
+              const key = p.itemId?._id || p._id;
               const maxDespachable = p.cantidad - (p.entregado || 0);
               return (
                 <div
-                  key={p.itemId?._id || p._id}
+                  key={key}
                   className="flex flex-wrap items-center gap-2 p-2 border rounded hover:bg-gray-50"
                 >
                   <span className="flex-1 font-medium">{p.nombre}</span>
@@ -200,9 +204,9 @@ export default function GuiasDespacho() {
                     type="number"
                     min={0}
                     max={maxDespachable}
-                    value={nuevaGuia[p.itemId?._id || p._id] || 0}
+                    value={nuevaGuia[key] || 0}
                     onChange={(e) =>
-                      handleCantidadChange(p.itemId?._id || p._id, Number(e.target.value))
+                      handleCantidadChange(key, Number(e.target.value))
                     }
                     className="border rounded px-2 w-20"
                   />

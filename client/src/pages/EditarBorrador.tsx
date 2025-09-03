@@ -132,13 +132,26 @@ export default function EditarBorrador() {
     const { seleccionados } = calcularResumen();
     try {
       const res = await api.put(`/cotizaciones/${id}`, {
-        cliente, direccion, rutCliente, giroCliente, direccionCliente,
-        comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
-        fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago,
-        tipo: 'cotizacion', estado: 'borrador',
+        cliente,
+        direccion,
+        rutCliente,
+        giroCliente,
+        direccionCliente,
+        comunaCliente,
+        ciudadCliente,
+        atencion,
+        emailCliente,
+        telefonoCliente,
+        fechaHoy: new Date().toLocaleDateString(),
+        fechaEntrega,
+        metodoPago,
+        tipo: 'cotizacion',
+        estado: 'borrador',
         productos: seleccionados.map(p => ({
-           itemId: typeof p.id === 'object' ? p.id._id : String(p.id), cantidad: p.cantidad,
-           nombre: p.nombre,total: p.totalm, 
+          itemId: String(p.id),
+          cantidad: p.cantidad,
+          nombre: p.nombre,
+          total: p.total,
           precio: preciosPersonalizados[p.id] ?? p.precio,
         })),
       });

@@ -11,14 +11,23 @@ app.use(cors());
 app.use(express.json());
 
 // CORS: permite solo tu frontend en producción
-const allowedOrigin = process.env.CORS_ORIGIN; // ej: https://tuapp.vercel.app
+const allowedOrigin = process.env.CORS_ORIGIN;
+const devOrigin = process.env.DEV_ORIGIN;
+
 app.use(cors({
-origin: (origin, cb) => {
-// Permite requests de herramientas (sin origin) y del dominio permitido
-if (!origin || origin === allowedOrigin) return cb(null, true);
-return cb(new Error('CORS bloqueado'));
-},
-credentials: true,
+  origin: (origin, cb) => {
+    // Permite requests de Postman, curl, etc. (sin origin)
+    if (!origin) return cb(null, true);
+
+    // Permite localhost para desarrollo
+    if (origin === devOrigin) return cb(null, true);
+
+    // Permite tu dominio de producción
+    if (origin === allowedOrigin) return cb(null, true);
+
+    return cb(new Error('CORS bloqueado'));
+  },
+  credentials: true,
 }));
 
 

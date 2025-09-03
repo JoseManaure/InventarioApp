@@ -31,13 +31,17 @@ export default function FacturaCompra() {
   const [catalogo, setCatalogo] = useState<ItemCatalogo[]>([]);
   const [guardando, setGuardando] = useState(false);
 
-  // 🔹 Calcular totales con useMemo
+  // 🔹 Calcular totales con useMemo (una sola pasada)
   const { subtotal, iva, total } = useMemo(() => {
-    const subtotalCalc = productos.reduce(
-      (acc, p) => acc + p.cantidad * p.precioUnitario,
-      0
-    );
-    const ivaCalc = subtotalCalc * 0.19;
+    let subtotalCalc = 0;
+    let ivaCalc = 0;
+
+    for (const p of productos) {
+      const totalProducto = p.cantidad * p.precioUnitario;
+      subtotalCalc += totalProducto;
+      ivaCalc += totalProducto * 0.19;
+    }
+
     return {
       subtotal: subtotalCalc,
       iva: ivaCalc,
@@ -64,18 +68,15 @@ export default function FacturaCompra() {
     valor: string | number
   ) => {
     const copia = [...productos];
-
-    // Actualizamos campo
     (copia[index] as any)[campo] = valor;
 
-    // Si selecciona nombre desde catálogo → traer precio sugerido y código
+    // Si selecciona nombre desde catálogo → traer precio y código
     if (campo === "nombre") {
       const item = catalogo.find((c) => c.nombre === valor);
       if (item) {
         copia[index].precioUnitario = item.precio;
         copia[index].codigo = item.codigo;
       } else {
-        // Si no encuentra item, limpiar código
         copia[index].codigo = "";
       }
     }
@@ -87,7 +88,6 @@ export default function FacturaCompra() {
     const copia = [...productos];
     copia[index].codigo = valor;
 
-    // Si el código coincide con un item del catálogo, traer nombre y precio
     const item = catalogo.find((c) => c.codigo === valor);
     if (item) {
       copia[index].nombre = item.nombre;
@@ -104,21 +104,14 @@ export default function FacturaCompra() {
     ]);
   };
 
-  const calcularTotalProducto = (p: ProductoFactura) => {
-    return p.cantidad * p.precioUnitario;
-  };
-
-  const calcularIVAProducto = (p: ProductoFactura) => {
-    return calcularTotalProducto(p) * 0.19;
-  };
-
   const guardarFactura = async () => {
     setGuardando(true);
 
-    // Validación básica
     for (const p of productos) {
       if (!p.nombre || !p.codigo || p.cantidad <= 0 || p.precioUnitario <= 0) {
-        alert("Todos los productos deben tener nombre, código, cantidad y precio mayor a 0");
+        alert(
+          "Todos los productos deben tener nombre, código, cantidad y precio mayor a 0"
+        );
         setGuardando(false);
         return;
       }
@@ -234,9 +227,7 @@ export default function FacturaCompra() {
               <td className="border p-1">
                 <select
                   value={p.nombre}
-                  onChange={(e) =>
-                    actualizarProducto(i, "nombre", e.target.value)
-                  }
+                  onChange={(e) => actualizarProducto(i, "nombre", e.target.value)}
                   className="border p-1 w-full"
                 >
                   <option value="">-- Seleccione --</option>
@@ -262,11 +253,7 @@ export default function FacturaCompra() {
                   type="number"
                   value={p.precioUnitario}
                   onChange={(e) =>
-                    actualizarProducto(
-                      i,
-                      "precioUnitario",
-                      Number(e.target.value)
-                    )
+                    actualizarProducto(i, "precioUnitario", Number(e.target.value))
                   }
                   className="border p-1 w-full"
                 />
@@ -286,8 +273,7 @@ export default function FacturaCompra() {
 
       <button
         onClick={agregarFila}
-        className="mt-2 px-3 py
-        -1 bg-blue-500 text-white rounded"
+        className="mt-2 px-3 py-1 bg-blue-500 text-white rounded"
       >
         ➕ Agregar Producto
       </button>

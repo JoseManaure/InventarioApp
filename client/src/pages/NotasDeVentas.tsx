@@ -99,6 +99,7 @@ export default function NotasDeVenta() {
   };
 
   const pagarNota = async (nota: NotaDeVenta) => {
+   setPayingId(nota._id);
     try {
       const neto = nota.productos.reduce(
         (a, p) => a + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
@@ -126,7 +127,9 @@ export default function NotasDeVenta() {
     } catch (err) {
       console.error("Error iniciando pago:", err);
       alert("No se pudo iniciar el pago");
-    }
+    }finally {
+    setPayingId(null); // liberar estado
+  }
   };
 
   const notasFiltradas = useMemo(() => {
@@ -169,42 +172,40 @@ export default function NotasDeVenta() {
     return `${day}-${month}-${year}`;
   };
 
-  const abrirGuia = (nota: NotaDeVenta) => {
-    setGuiaNota(nota);
-    setDespachoCantidades(nota.productos.map(() => 0));
-    setShowGuiaModal(true);
-  };
 
-    const guardarGuiaDespacho = async () => {
-    if (!guiaNota) return;
-    try {
-      const productosADespachar = guiaNota.productos
-        .map((p, idx) => ({
-          itemId: (p as any).itemId?._id || (p as any).itemId || p._id, // usar el ID real
-          nombre: p.nombre,
-          cantidad: despachoCantidades[idx] || 0,
-          precio: p.precio,
-        }))
-        .filter((p) => p.cantidad > 0);
+   const guardarGuiaDespacho = async () => {
+  if (!guiaNota) return;
 
-      if (productosADespachar.length === 0) {
-        alert("Ingresa al menos una cantidad a despachar");
-        return;
-      }
+  try {
+    // Preparar productos a despachar con tipos correctos
+    const productosADespachar = guiaNota.productos
+      .map((p, idx) => ({
+        itemId: (p as any).itemId?._id || (p as any)._id, // usar el ID real
+        nombre: p.nombre,
+        cantidad: despachoCantidades[idx] || 0,
+        precio: p.precio,
+      }))
+      .filter((p) => p.cantidad > 0);
 
-      await api.post(`/guias`, {
-        notaId: guiaNota._id,
-        productos: productosADespachar,
-      });
-
-      alert("Guía de despacho creada correctamente");
-      setShowGuiaModal(false);
-      cargarNotas();
-    } catch (err) {
-      console.error("Error guardando guía de despacho:", err);
-      alert("Error al guardar la guía");
+    if (productosADespachar.length === 0) {
+      alert("Ingresa al menos una cantidad a despachar");
+      return;
     }
-  };
+
+    // Crear la guía en backend
+    await api.post(`/guias`, {
+      notaId: guiaNota._id,
+      productos: productosADespachar,
+    });
+
+    alert("Guía de despacho creada correctamente");
+    setShowGuiaModal(false);
+    cargarNotas(); // refresca la lista
+  } catch (err) {
+    console.error("Error guardando guía de despacho:", err);
+    alert("Error al guardar la guía");
+  }
+};
 
   const totalGuia = () => {
     if (!guiaNota) return 0;
@@ -219,20 +220,22 @@ export default function NotasDeVenta() {
 
     try {
       // Generar PDF usando tu util
-      const buffer = generarGuiaPDF(
-        guiaNota.cliente,
-        guiaNota.productos.map((p, idx) => ({
-          ...p,
-          cantidad: despachoCantidades[idx] || 0,
-          total: (despachoCantidades[idx] || 0) * p.precio,
-        })),
-        {
-          tipo: "guia",
-          numeroDocumento: guiaNota._id,
-          direccionCliente: guiaNota.direccion,
-        }
-      );
-
+    const buffer = generarGuiaPDF(
+  guiaNota.cliente,
+  guiaNota.productos.map((p, idx) => ({
+    ...p,
+    cantidad: despachoCantidades[idx] || 0,
+    total: (despachoCantidades[idx] || 0) * p.precio,
+  })),
+  {
+    tipo: "guia",
+    numeroDocumento: guiaNota._id,          // puedes poner el id de la nota o un número correlativo
+    direccion: guiaNota.direccion,          // renombrado
+    fechaEntrega: guiaNota.fechaEntrega || new Date().toISOString().split("T")[0],
+    metodoPago: guiaNota.metodoPago || "efectivo",
+    tipoDocumento: "guia",                  // opcional, según tu util
+  }
+);
       // Crear Blob y abrir en nueva ventana
       const blob = new Blob([buffer], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);

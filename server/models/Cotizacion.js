@@ -46,7 +46,7 @@ const CotizacionSchema = new mongoose.Schema(
       },
     ],
 
-    anulada: { type: Boolean, default: false },
+    anulada: { type: Date, default: null },
 
     estado: {
       type: String,
