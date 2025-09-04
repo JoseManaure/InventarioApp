@@ -5,29 +5,42 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
+// CORS global
+const allowedOrigin = process.env.CORS_ORIGIN; // tu frontend en producción (Vercel)
+const devOrigin = process.env.DEV_ORIGIN;      // localhost para desarrollo
 
-// Variables de entorno
-const allowedOrigin = process.env.CORS_ORIGIN; // frontend en producción (Vercel)
-const devOrigin = process.env.DEV_ORIGIN;      // localhost
-
-// Middleware para parsear JSON
-app.use(express.json());
-
-// ✅ CORS global para todas las rutas
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (!origin || origin === devOrigin || origin === allowedOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    if (req.method === 'OPTIONS') return res.sendStatus(204);
-    return next();
-  } else {
+
+  // Permite requests sin origin (Postman, curl, etc.)
+  if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  // Permite desarrollo
+  else if (origin === devOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', devOrigin);
+  }
+  // Permite producción
+  else if (origin === allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  }
+  // Bloquea otros orígenes
+  else {
     return res.status(403).send('CORS bloqueado');
   }
+
+  // Cabeceras comunes
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
+  // Respuesta para preflight
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+
+  next();
 });
 
+      
 // Ruta de salud
 app.get('/health', (_req, res) => res.status(200).send('ok'));
 
