@@ -25,6 +25,10 @@ app.use(cors({
   credentials: true,
 }));
 
+app.options('*', cors({
+  origin: [allowedOrigin, devOrigin],
+  credentials: true,
+}));
 
 
 // Salud (para Render)
