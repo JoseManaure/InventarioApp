@@ -10,27 +10,7 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-// Configuración CORS
-const allowedOrigin = process.env.CORS_ORIGIN; // Frontend producción
-const devOrigin = process.env.DEV_ORIGIN;      // Frontend localhost
-
-const corsOptions = {
-  origin: function(origin, callback) {
-    // Permite requests sin origin (Postman, curl)
-    if (!origin) return callback(null, true);
-
-    // Permite localhost y producción
-    if (origin === devOrigin || origin === allowedOrigin) return callback(null, true);
-
-    callback(new Error('CORS bloqueado'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Preflight
+app.use(cors({ origin: '*' }));
 
 // Salud
 app.get('/health', (_req, res) => res.status(200).send('ok'));
