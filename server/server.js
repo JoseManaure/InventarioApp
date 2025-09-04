@@ -5,37 +5,27 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
-// CORS global
-const allowedOrigin = process.env.CORS_ORIGIN; // tu frontend en producción (Vercel)
-const devOrigin = process.env.DEV_ORIGIN;      // localhost para desarrollo
+
+
+const allowedOrigin = process.env.CORS_ORIGIN; // producción
+const devOrigin = process.env.DEV_ORIGIN;      // localhost
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-
-  // Permite requests sin origin (Postman, curl, etc.)
-  if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  // Permite desarrollo
-  else if (origin === devOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', devOrigin);
-  }
-  // Permite producción
-  else if (origin === allowedOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  }
-  // Bloquea otros orígenes
-  else {
+  
+  if (origin === devOrigin || origin === allowedOrigin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.header('Access-Control-Allow-Origin', '*'); // Postman, curl
+  } else {
     return res.status(403).send('CORS bloqueado');
   }
 
-  // Cabeceras comunes
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 
-  // Respuesta para preflight
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  if (req.method === 'OPTIONS') return res.sendStatus(204); // importante
 
   next();
 });
