@@ -85,6 +85,7 @@ export default function Cotizaciones() {
         setNota(d.nota ?? "");
 
         const seleccionadosIniciales: Record<string, { cantidad: number; nombre: string; precio: number }> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d.productos || []).forEach((p: any) => {
           const idProd = (p.itemId?._id || p.itemId || p._id).toString();
           seleccionadosIniciales[idProd] = {

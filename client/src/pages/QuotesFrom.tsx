@@ -34,7 +34,7 @@ export default function QuoteForm() {
     };
 
     try {
-       await api.post('/quotes', body);
+       await api.post('/quotes', body); 
       alert('Cotización creada con éxito');
     } catch (error) {
       alert(`Error al crear cotización: ${error}`);
