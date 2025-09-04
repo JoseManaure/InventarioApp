@@ -15,19 +15,16 @@ const devOrigin = process.env.DEV_ORIGIN;
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Permite requests de Postman, curl, etc. (sin origin)
-    if (!origin) return cb(null, true);
-
-    // Permite localhost para desarrollo
-    if (origin === devOrigin) return cb(null, true);
-
-    // Permite tu dominio de producción
-    if (origin === allowedOrigin) return cb(null, true);
-
-    return cb(new Error('CORS bloqueado'));
+    if (!origin || origin === devOrigin || origin === allowedOrigin) {
+      cb(null, true);
+    } else {
+      cb(new Error('CORS bloqueado'));
+    }
   },
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   credentials: true,
 }));
+
 
 
 // Salud (para Render)
