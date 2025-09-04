@@ -10,7 +10,9 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-app.use(cors({ origin: '*' }));
+app.options('*', cors({ origin: '*' })); // para preflight
+app.use(cors({ origin: '*' })); // para requests normales
+
 
 // Salud
 app.get('/health', (_req, res) => res.status(200).send('ok'));
