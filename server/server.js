@@ -10,26 +10,24 @@ const app = express();
 app.use(express.json());
 
 // CORS: permite solo tu frontend en producción
-const allowedOrigin = process.env.CORS_ORIGIN;
-const devOrigin = process.env.DEV_ORIGIN;
+// Variables de entorno
+const allowedOrigin = process.env.CORS_ORIGIN; // producción
+const devOrigin = process.env.DEV_ORIGIN;      // localhost
 
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || origin === devOrigin || origin === allowedOrigin) {
-      cb(null, true);
-    } else {
-      cb(new Error('CORS bloqueado'));
-    }
-  },
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-  credentials: true,
-}));
-
-app.options('*', cors({
-  origin: [allowedOrigin, devOrigin],
-  credentials: true,
-}));
-
+// CORS global
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin || origin === devOrigin || origin === allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    return next();
+  } else {
+    return res.status(403).send('CORS bloqueado');
+  }
+});
 
 // Salud (para Render)
 app.get('/health', (_req, res) => res.status(200).send('ok'));
