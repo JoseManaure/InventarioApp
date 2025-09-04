@@ -10,67 +10,65 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-// Variables de entorno para CORS
-const allowedOrigin = process.env.CORS_ORIGIN; // producción Vercel
-const devOrigin = process.env.DEV_ORIGIN;      // localhost
+// Configuración CORS
+const allowedOrigin = process.env.CORS_ORIGIN; // Frontend producción
+const devOrigin = process.env.DEV_ORIGIN;      // Frontend localhost
 
-// Configuración general de CORS
 const corsOptions = {
-  origin: [allowedOrigin, devOrigin],
+  origin: function(origin, callback) {
+    // Permite requests sin origin (Postman, curl)
+    if (!origin) return callback(null, true);
+
+    // Permite localhost y producción
+    if (origin === devOrigin || origin === allowedOrigin) return callback(null, true);
+
+    callback(new Error('CORS bloqueado'));
+  },
   credentials: true,
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-// Middleware global para manejar OPTIONS
-app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Preflight
 
-// Salud (ping)
+// Salud
 app.get('/health', (_req, res) => res.status(200).send('ok'));
 
-// ✅ Carpeta de uploads (PDFs)
-const uploadPath = path.join(__dirname, 'uploads/pdfs');
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage });
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Routers
-const authRouter = require('./routes/auth');
-const itemsRouter = require('./routes/items');
-const comparadorRouter = require('./routes/comparador');
+// Rutas
+const comparador = require('./routes/comparador');
 const compararPreciosRouter = require('./routes/comparar-precios');
 const pagosRouter = require('./routes/pagos');
-const guiasRouter = require('./routes/guias');
-const cotizacionesRouter = require('./routes/cotizaciones');
-const facturasRouter = require('./routes/facturas');
-const chatRouter = require('./routes/chat');
+const guiasRoutes = require("./routes/guias");
 
-// Aplicar CORS directamente a cada router crítico
-app.use('/api/auth', cors(corsOptions), authRouter);
-app.use('/api/items', cors(corsOptions), itemsRouter);
-app.use('/api/comparar-precios', cors(corsOptions), comparadorRouter);
-app.use('/api/comparar-precios', cors(corsOptions), compararPreciosRouter);
-app.use('/api/pagos', cors(corsOptions), pagosRouter);
-app.use('/api/guias', cors(corsOptions), guiasRouter);
-app.use('/api/cotizaciones', cors(corsOptions), cotizacionesRouter);
-app.use('/api/facturas', cors(corsOptions), facturasRouter);
-app.use('/api/chat', cors(corsOptions), chatRouter);
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/items', require('./routes/items'));
+app.use('/api/comparar-precios', comparador);
+app.use('/api/cotizaciones', require('./routes/cotizaciones'));
+app.use('/api/facturas', require('./routes/facturas'));
+app.use('/api/chat', require('./routes/chat'));
+app.use('/api/pagos', pagosRouter);
+app.use("/api/guias", guiasRoutes);
 
-// Modelo para PDF
+// Configuración de Multer
+const uploadPath = path.join(__dirname, 'uploads/pdfs');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadPath),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+const upload = multer({ storage });
+
+// Servir PDFs de manera pública
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Ruta para subir PDFs de cotizaciones
 const Cotizacion = require('./models/Cotizacion');
 
-// Subida de PDFs
-app.post('/api/cotizaciones/upload-pdf', cors(corsOptions), upload.single('file'), async (req, res) => {
+app.post('/api/cotizaciones/upload-pdf', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
-
   const { cotizacionId } = req.body;
   if (!cotizacionId) return res.status(400).json({ error: 'Falta el ID de la cotización' });
 
@@ -83,7 +81,6 @@ app.post('/api/cotizaciones/upload-pdf', cors(corsOptions), upload.single('file'
       { new: true }
     );
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada' });
-
     res.json({ pdfUrl, cotizacion });
   } catch (error) {
     res.status(500).json({ error: 'Error al actualizar la cotización con el PDF' });
