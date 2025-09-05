@@ -10,11 +10,20 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
+const allowedOrigins = [
+  "https://inventario-app-fr1k.vercel.app", // frontend en vercel
+  "http://localhost:5173", // desarrollo local
+];
+
 app.use(cors({
-  origin: [
-    "https://inventario-app-fr1k.vercel.app", // tu frontend en vercel
-    "http://localhost:5173" // para pruebas locales
-  ],
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // permite Postman o curl
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true, // 🔴 necesario si usas cookies o withCredentials
 }));
 
 
