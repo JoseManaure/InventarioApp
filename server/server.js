@@ -10,7 +10,6 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-app.options('*', cors({ origin: '*' })); // para preflight
 app.use(cors({
   origin: [
     "https://inventario-app-fr1k.vercel.app", // tu frontend en vercel
