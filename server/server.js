@@ -11,7 +11,12 @@ const app = express();
 app.use(express.json());
 
 app.options('*', cors({ origin: '*' })); // para preflight
-app.use(cors({ origin: '*' })); // para requests normales
+app.use(cors({
+  origin: [
+    "https://inventario-app-fr1k.vercel.app", // tu frontend en vercel
+    "http://localhost:5173" // para pruebas locales
+  ],
+}));
 
 
 // Salud
