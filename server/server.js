@@ -10,6 +10,9 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
+// Salud
+app.get('/health', (_req, res) => res.status(200).send('ok'));
+
 const allowedOrigins = [
   "https://inventario-app-fr1k.vercel.app", // frontend en vercel
   "http://localhost:5173", // desarrollo local
@@ -26,10 +29,6 @@ app.use(cors({
   credentials: true, // 🔴 necesario si usas cookies o withCredentials
 }));
 
-
-// Salud
-app.get('/health', (_req, res) => res.status(200).send('ok'));
-
 // Rutas
 const comparador = require('./routes/comparador');
 const compararPreciosRouter = require('./routes/comparar-precios');
@@ -38,7 +37,8 @@ const guiasRoutes = require("./routes/guias");
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/items', require('./routes/items'));
-app.use('/api/comparar-precios', comparador);
+app.use('/api/comparador', comparador); // <--- corregido
+app.use('/api/comparar-precios', compararPreciosRouter); // <--- corregido
 app.use('/api/cotizaciones', require('./routes/cotizaciones'));
 app.use('/api/facturas', require('./routes/facturas'));
 app.use('/api/chat', require('./routes/chat'));
