@@ -246,17 +246,17 @@ export default function NotasDeVenta() {
       alert("No se pudo generar la Guía en PDF");
     }
   };
-
-  return (
-    <div className="p-6 bg-gray-50 min-h-screen flex flex-col">
-      <h2 className="text-3xl font-semibold mb-6 text-gray-800 flex items-center gap-2">
-        <FileText className="w-7 h-7" />
+return (
+  <div className="p-6 bg-gray-50 min-h-screen flex flex-col">
+    <div className="bg-white shadow-md rounded-xl p-4 flex items-center justify-between mb-4">
+      <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+        <FileText className="w-6 h-6" />
         Notas de Venta
       </h2>
 
-      {/* Filtro por mes */}
-      <div className="mb-4">
-        <label className="mr-2 font-medium text-gray-700">Filtrar por mes:</label>
+      {/* Filtro integrado en header */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm text-gray-600">Filtrar por mes:</label>
         <input
           type="month"
           value={mesSeleccionado}
@@ -264,41 +264,36 @@ export default function NotasDeVenta() {
             setMesSeleccionado(e.target.value);
             setPagina(1);
           }}
-          className="border rounded px-3 py-1"
+          className="border rounded px-2 py-1 text-sm"
         />
       </div>
+    </div>
 
-      {/* Barra de progreso */}
-      {progressVisible && (
-        <div
-          className="w-full h-2 bg-gray-300 rounded mb-4 overflow-hidden transition-opacity duration-500"
-          style={{ opacity: progressVisible ? 1 : 0 }}
-        >
-          <div
-            className="h-2 bg-blue-600 rounded transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
-
-      {/* Tabla de notas */}
-      <div className="flex-1 shadow-md rounded-lg relative overflow-x-auto bg-white">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-100 border-b border-gray-300">
+    {/* Tabla */}
+    <div className="flex-1 shadow-sm rounded-lg relative overflow-x-auto bg-white">
+      <table className="w-full text-left border-collapse">
+        <thead className="bg-gray-100 border-b border-gray-300 text-sm">
+          <tr>
+            <th className="p-3 font-medium text-gray-700">Cliente</th>
+            <th className="p-3 font-medium text-gray-700">Dirección</th>
+            <th className="p-3 font-medium text-gray-700">Fecha Entrega</th>
+            <th className="p-3 font-medium text-gray-700">Método Pago</th>
+            <th className="p-3 font-medium text-gray-700 text-right">Neto</th>
+            <th className="p-3 font-medium text-gray-700 text-right">IVA</th>
+            <th className="p-3 font-medium text-gray-700 text-right">Total</th>
+            <th className="p-3 font-medium text-gray-700 text-center">PDF</th>
+            <th className="p-3 font-medium text-gray-700 text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="text-sm">
+          {notasPaginadas.length === 0 ? (
             <tr>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Cliente</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Dirección</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Fecha Entrega</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Método Pago</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Neto</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">IVA</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Total</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">PDF</th>
-              <th className="p-3 text-gray-700 font-medium uppercase text-sm">Acciones</th>
+              <td colSpan={9} className="p-4 text-center text-gray-500">
+                No hay notas de venta registradas en esta página.
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {notasPaginadas.map((nota) => {
+          ) : (
+            notasPaginadas.map((nota) => {
               const neto = Math.round(
                 nota.productos?.reduce(
                   (acc, p) => acc + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
@@ -312,209 +307,101 @@ export default function NotasDeVenta() {
               return (
                 <tr
                   key={nota._id}
-                  className={`${estaAnulada ? "bg-red-50" : "bg-white"} border-b border-gray-200`}
+                  className={`${
+                    estaAnulada ? "bg-red-50" : "bg-white"
+                  } border-b hover:bg-gray-50`}
                 >
-                  <td className="p-3 text-gray-800">{nota.cliente}</td>
-                  <td className="p-3 text-gray-800">{nota.direccion}</td>
-                  <td className="p-3 text-gray-800">{formatearFecha(nota.fechaEntrega)}</td>
-                  <td className="p-3 text-gray-800">{nota.metodoPago}</td>
-                  <td className={`p-3 font-semibold ${estaAnulada ? "text-red-600" : "text-gray-800"}`}>
-                    ${neto.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-                  </td>
-                  <td className={`p-3 font-semibold ${estaAnulada ? "text-red-600" : "text-gray-800"}`}>
-                    ${iva.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-                  </td>
-                  <td className={`p-3 font-bold ${estaAnulada ? "text-red-600" : "text-gray-900"}`}>
-                    ${total.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-                  </td>
-                  <td className="p-3">
+                  <td className="p-3">{nota.cliente}</td>
+                  <td className="p-3">{nota.direccion}</td>
+                  <td className="p-3">{formatearFecha(nota.fechaEntrega)}</td>
+                  <td className="p-3">{nota.metodoPago}</td>
+                  <td className="p-3 text-right">${neto.toLocaleString("es-CL")}</td>
+                  <td className="p-3 text-right">${iva.toLocaleString("es-CL")}</td>
+                  <td className="p-3 text-right font-semibold">${total.toLocaleString("es-CL")}</td>
+                  <td className="p-3 text-center">
                     {nota.pdfUrl ? (
                       <button
-                        className="text-blue-600 underline hover:text-blue-800"
                         onClick={() => {
                           setPdfUrl(`http://localhost:3000${nota.pdfUrl}`);
                           setShowPdfModal(true);
                         }}
+                        className="text-blue-600 hover:text-blue-800"
                       >
-                        Abrir PDF
+                        Abrir
                       </button>
                     ) : (
-                      <span className="text-gray-400 text-sm">No disponible</span>
+                      <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 text-center">
                     {!estaAnulada ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex justify-center gap-2">
                         <button
                           onClick={() => anularNota(nota._id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition flex items-center gap-1"
+                          className="text-red-600 hover:text-red-800"
                           title="Anular"
                         >
                           <Trash2 className="w-4 h-4" />
-                          Anular
                         </button>
                         <button
                           onClick={() => pagarNota(nota)}
                           disabled={payingId === nota._id}
-                          className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center gap-1 disabled:opacity-60"
+                          className="text-green-600 hover:text-green-800 disabled:opacity-50"
                           title="Pagar"
                         >
                           <CreditCard className="w-4 h-4" />
-                          {payingId === nota._id ? "Procesando..." : "Pagar"}
                         </button>
-                      <button
-  onClick={() => window.location.href = `/guias/${nota._id}`}
-  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center gap-1"
-  title="Ver / Crear Guías"
->
-  <Truck className="w-4 h-4" />
-  Guías
-</button>
+                        <button
+                          onClick={() => (window.location.href = `/guias/${nota._id}`)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Guías"
+                        >
+                          <Truck className="w-4 h-4" />
+                        </button>
                       </div>
                     ) : (
                       <span className="text-red-600 font-semibold">Anulada</span>
                     )}
                   </td>
-                  
                 </tr>
               );
-            })}
-            {notasPaginadas.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-4 text-center text-gray-500">
-                  No hay notas de venta registradas en esta página.
-                </td>
-              </tr>
-            )}
-          </tbody>
-          <tfoot className="bg-gray-100">
-            <tr>
-              <td colSpan={4} className="p-3 text-right font-bold text-gray-700">
-                Totales (Todos los registros):
-              </td>
-              <td className="p-3 font-bold text-gray-800">
-                ${totales.neto.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-              </td>
-              <td className="p-3 font-bold text-gray-800">
-                ${totales.iva.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-              </td>
-              <td className="p-3 font-bold text-gray-900">
-                ${totales.total.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-              </td>
-              <td colSpan={2}></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      {/* Paginación */}
-      <div className="flex justify-center items-center gap-4 mt-4">
-        <button
-          disabled={pagina === 1}
-          onClick={() => setPagina(pagina - 1)}
-          className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
-        >
-          Anterior
-        </button>
-        <span className="font-medium">
-          Página {pagina} de {totalPaginas || 1}
-        </span>
-        <button
-          disabled={pagina === totalPaginas || totalPaginas === 0}
-          onClick={() => setPagina(pagina + 1)}
-          className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
-        >
-          Siguiente
-        </button>
-      </div>
-
-      {/* Modal PDF */}
-      {showPdfModal && pdfUrl && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300"
-          onClick={() => setShowPdfModal(false)}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl w-3/4 h-5/6 relative p-2 transform transition-transform duration-300 ease-out scale-90 opacity-0 animate-modalIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowPdfModal(false)}
-              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 transition"
-            >
-              ✕
-            </button>
-            <iframe src={pdfUrl} className="w-full h-full rounded" title="PDF Preview" />
-          </div>
-        </div>
-      )}
-
-
-            {/* Modal Guía de Despacho */}
-      {showGuiaModal && guiaNota && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setShowGuiaModal(false)}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl w-2/3 max-h-[80vh] p-4 overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Crear Guía de Despacho - {guiaNota.cliente}</h3>
-              <button
-                onClick={imprimirGuia}
-                className="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-800"
-              >
-                <Printer className="w-4 h-4" />
-                Imprimir
-              </button>
-            </div>
-            {guiaNota.productos.map((p, idx) => (
-              <div key={idx} className="flex items-center gap-2 mb-2">
-                <span className="w-1/2">{p.nombre}</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={p.cantidad - (p.despachado || 0)}
-                  value={despachoCantidades[idx]}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setDespachoCantidades((prev) => {
-                      const copy = [...prev];
-                      copy[idx] = val;
-                      return copy;
-                    });
-                  }}
-                  className="border rounded px-2 py-1 w-24"
-                />
-                <span>de {p.cantidad - (p.despachado || 0)} disponible</span>
-                <span className="ml-auto font-semibold">
-                  ${((despachoCantidades[idx] || 0) * p.precio).toLocaleString("es-CL")}
-                </span>
-              </div>
-            ))}
-            <div className="flex justify-end gap-2 mt-4 font-bold text-gray-800">
-              Total: ${totalGuia().toLocaleString("es-CL")}
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => setShowGuiaModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={guardarGuiaDespacho}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Guardar Guía
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            })
+          )}
+        </tbody>
+        <tfoot className="bg-gray-50 text-sm">
+          <tr>
+            <td colSpan={4} className="p-3 text-right font-semibold">
+              Totales:
+            </td>
+            <td className="p-3 text-right font-bold">${totales.neto.toLocaleString("es-CL")}</td>
+            <td className="p-3 text-right font-bold">${totales.iva.toLocaleString("es-CL")}</td>
+            <td className="p-3 text-right font-bold">${totales.total.toLocaleString("es-CL")}</td>
+            <td colSpan={2}></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
-  );
-}
 
+    {/* Paginación */}
+    <div className="flex justify-center items-center gap-4 mt-4 text-sm">
+      <button
+        disabled={pagina === 1}
+        onClick={() => setPagina(pagina - 1)}
+        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+      >
+        Anterior
+      </button>
+      <span>
+        Página {pagina} de {totalPaginas || 1}
+      </span>
+      <button
+        disabled={pagina === totalPaginas || totalPaginas === 0}
+        onClick={() => setPagina(pagina + 1)}
+        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+      >
+        Siguiente
+      </button>
+    </div>
+  </div>
+)
+}
