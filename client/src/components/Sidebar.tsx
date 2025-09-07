@@ -16,15 +16,12 @@ import { useEffect, useState } from 'react';
 
 export default function Sidebar() {
   const [isDark, setIsDark] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true); // sidebar colapsado por defecto
 
   useEffect(() => {
     const dark = localStorage.getItem('theme') === 'dark';
     setIsDark(dark);
-    if (dark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', dark);
   }, []);
 
   const toggleDarkMode = () => {
@@ -46,12 +43,18 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="h-screen w-60 bg-white dark:bg-gray-900 text-gray-800 dark:text-white flex flex-col shadow-lg">
+    <aside
+      className={`h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-white flex flex-col shadow-lg transition-all
+        ${isCollapsed ? 'w-16' : 'w-60'}
+      `}
+      onMouseEnter={() => setIsCollapsed(false)}
+      onMouseLeave={() => setIsCollapsed(true)}
+    >
       {/* Encabezado */}
       <div className="p-4 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ClipboardList className="w-6 h-6 text-blue-500" />
-          <h2 className="text-xl font-semibold">Rasiva SPA</h2>
+          {!isCollapsed && <h2 className="text-xl font-semibold">Rasiva SPA</h2>}
         </div>
         <button
           onClick={toggleDarkMode}
@@ -63,21 +66,26 @@ export default function Sidebar() {
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {links.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all ${
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              `flex items-center gap-3 p-3 rounded-md text-sm font-medium transition-all relative
+              ${isActive
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`
             }
           >
-            <Icon className="w-5 h-5" />
-            <span>{label}</span>
+            <Icon className="w-6 h-6" />
+            {!isCollapsed && <span>{label}</span>}
+            {isCollapsed && (
+              <span className="absolute left-16 bg-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap">
+                {label}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

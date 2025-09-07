@@ -1,30 +1,44 @@
 // src/components/Navbar.tsx
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 export default function Navbar() {
   const location = useLocation();
 
-  const linkClass = (path: string) =>
-    `px-4 py-2 rounded mr-2 transition-colors ${
-      location.pathname === path
-        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-        : 'text-zinc-700 dark:text-gray-200 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-    }`;
+  const links = [
+    { path: '/inventario', label: 'Inventario' },
+    { path: '/cotizaciones', label: 'Cotizaciones' },
+    { path: '/facturas', label: 'Entradas' },
+    { path: '/productos', label: 'Productos' },
+  ];
 
   return (
-    <nav className="flex flex-wrap items-center bg-zinc-50 dark:bg-gray-800 p-4 shadow-md transition-colors">
-      <Link to="/inventario" className={linkClass('/inventario')}>
-        Inventario
-      </Link>
-      <Link to="/cotizaciones" className={linkClass('/cotizaciones')}>
-        Cotizaciones
-      </Link>
-      <Link to="/facturas" className={linkClass('/ver-facturas')}>
-        Entradas
-      </Link>
-      <Link to="/productos" className={linkClass('/productos')}>
-        Productos
-      </Link>
+    <nav className="flex items-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-4 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <ul className="flex space-x-4">
+        {links.map((link) => {
+          const isActive = location.pathname === link.path;
+          return (
+            <li key={link.path} className="relative">
+              <Link
+                to={link.path}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200
+                  ${isActive 
+                    ? 'text-blue-600 dark:text-blue-400 font-semibold' 
+                    : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
+              >
+                {link.label}
+                {isActive && (
+                  <motion.div
+                    layoutId="underline"
+                    className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded"
+                  />
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }
