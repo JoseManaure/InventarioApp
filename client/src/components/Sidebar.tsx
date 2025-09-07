@@ -1,94 +1,103 @@
-// src/components/Sidebar.tsx
-import { NavLink } from 'react-router-dom';
+// src/components/SidebarFlotante.tsx
+import { useState, useEffect } from "react";
+import { NavLink } from "react-router-dom";
 import {
   Boxes,
   FileText,
-  ClipboardList,
   StickyNote,
+  Files,
   PackageCheck,
   FileInput,
-  Files,
   ArchiveRestore,
   Moon,
   Sun,
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+  Menu,
+  X,
+} from "lucide-react";
 
-export default function Sidebar() {
+export default function SidebarFlotante() {
+  const [isOpen, setIsOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(true); // sidebar colapsado por defecto
 
   useEffect(() => {
-    const dark = localStorage.getItem('theme') === 'dark';
+    const dark = localStorage.getItem("theme") === "dark";
     setIsDark(dark);
-    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.classList.toggle("dark", dark);
   }, []);
 
   const toggleDarkMode = () => {
     const html = document.documentElement;
-    const dark = html.classList.toggle('dark');
+    const dark = html.classList.toggle("dark");
     setIsDark(dark);
-    localStorage.setItem('theme', dark ? 'dark' : 'light');
+    localStorage.setItem("theme", dark ? "dark" : "light");
   };
 
   const links = [
-    { to: '/inventario', label: 'Inventario', icon: Boxes },
-    { to: '/cotizaciones', label: 'Documentos', icon: FileText },
-    { to: '/notas', label: 'NotasVentas', icon: StickyNote },
-    { to: '/ver-cotizaciones', label: 'Cotizaciones', icon: Files },
-    { to: '/productos', label: 'Productos', icon: PackageCheck },
-    { to: '/facturas/nueva', label: 'Recepción Documentos', icon: FileInput },
-    { to: '/facturas', label: 'Entradas', icon: Files },
-    { to: '/ver-borradores', label: 'Borradores', icon: ArchiveRestore },
+    { to: "/inventario", label: "Inventario", icon: Boxes },
+    { to: "/cotizaciones", label: "Documentos", icon: FileText },
+    { to: "/notas", label: "NotasVentas", icon: StickyNote },
+    { to: "/ver-cotizaciones", label: "Cotizaciones", icon: Files },
+    { to: "/productos", label: "Productos", icon: PackageCheck },
+    { to: "/facturas/nueva", label: "Recepción", icon: FileInput },
+    { to: "/ver-borradores", label: "Borradores", icon: ArchiveRestore },
   ];
 
   return (
-    <aside
-      className={`h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-white flex flex-col shadow-lg transition-all
-        ${isCollapsed ? 'w-16' : 'w-60'}
-      `}
-      onMouseEnter={() => setIsCollapsed(false)}
-      onMouseLeave={() => setIsCollapsed(true)}
-    >
-      {/* Encabezado */}
-      <div className="p-4 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ClipboardList className="w-6 h-6 text-blue-500" />
-          {!isCollapsed && <h2 className="text-xl font-semibold">Rasiva SPA</h2>}
-        </div>
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-          title="Cambiar tema"
-        >
-          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
-      </div>
+    <div>
+      {/* Botón flotante */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed top-4 left-4 z-50 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition"
+        title="Menú"
+      >
+        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
 
-      {/* Navegación */}
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 p-3 rounded-md text-sm font-medium transition-all relative
-              ${isActive
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`
-            }
+      {/* Sidebar flotante */}
+      <aside
+        className={`fixed top-0 left-0 h-full z-40 bg-white dark:bg-gray-900 shadow-xl backdrop-blur-md border-r border-gray-200 dark:border-gray-700 transition-transform duration-300
+                    ${isOpen ? "translate-x-0" : "-translate-x-full"} w-64`}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Rasiva SPA</h2>
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition"
           >
-            <Icon className="w-6 h-6" />
-            {!isCollapsed && <span>{label}</span>}
-            {isCollapsed && (
-              <span className="absolute left-16 bg-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap">
-                {label}
-              </span>
-            )}
-          </NavLink>
-        ))}
-      </nav>
-    </aside>
+            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+        </div>
+
+        {/* Links */}
+        <nav className="flex flex-col p-2 space-y-1">
+          {links.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`
+              }
+              onClick={() => setIsOpen(false)} // cierra sidebar al hacer clic
+            >
+              <Icon className="w-5 h-5" />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+    </div>
   );
 }
