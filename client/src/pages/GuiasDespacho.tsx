@@ -74,19 +74,20 @@ export default function GuiasDespacho() {
   const crearGuia = async () => {
     if (!nota) return;
 
-    const productosAGuardar = nota.productos
-      .filter((p) => (nuevaGuia[p.itemId?._id || p._id] || 0) > 0)
-      .map((p) => {
-        const key = p.itemId?._id || p._id;
-        const maxDespachable = p.cantidad - (p.entregado || 0);
-        const cantidad = Math.min(nuevaGuia[key] || 0, maxDespachable);
-        return {
-          itemId: key,
-          nombre: p.nombre,
-          cantidad,
-          precio: p.precio,
-        };
-      });
+   const productosAGuardar = nota.productos
+  .filter((p) => p.itemId?._id && (nuevaGuia[p.itemId._id] || 0) > 0)
+  .map((p) => {
+    const key = p.itemId._id; // 🔹 siempre usar itemId._id
+    const maxDespachable = p.cantidad - (p.entregado || 0);
+    const cantidad = Math.min(nuevaGuia[key] || 0, maxDespachable);
+    return {
+      itemId: key,
+      nombre: p.nombre,
+      cantidad,
+      precio: p.precio,
+    };
+  });
+
 
     if (productosAGuardar.length === 0) {
       alert("Selecciona al menos un producto con cantidad válida");
@@ -98,6 +99,10 @@ export default function GuiasDespacho() {
         notaId,
         productos: productosAGuardar,
       });
+       console.log("➡️ Enviando al backend:", {
+    notaId,
+    productos: productosAGuardar,
+  });
 
       alert("✅ Guía creada correctamente");
       const nuevaGuiaCreada: GuiaDespacho = res.data;
