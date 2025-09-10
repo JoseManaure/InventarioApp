@@ -320,7 +320,7 @@ router.post("/", verifyToken, async (req, res) => {
     await crearPDFGuia(guia.toObject(), nota, absPath);
 
     // 4️⃣ Guardar URL pública y devolver al frontend
-    guia.pdfPath = `http://localhost:3000/uploads/guias/${fileName}`;
+    guia.pdfPath = `${process.env.VITE_API_UR}/uploads/guias/${fileName}`;
     await guia.save();
 
     res.status(201).json(guia);
