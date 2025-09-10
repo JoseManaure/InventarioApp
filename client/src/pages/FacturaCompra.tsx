@@ -7,6 +7,7 @@ interface ProductoFactura {
   cantidad: number;
   precioUnitario: number;
   codigo: string;
+  costo?: number;
 }
 
 interface ItemCatalogo {
@@ -25,7 +26,7 @@ export default function FacturaCompra() {
   const [tipoDocumento, setTipoDocumento] = useState("factura");
 
   const [productos, setProductos] = useState<ProductoFactura[]>([
-    { nombre: "", cantidad: 0, precioUnitario: 0, codigo: "" },
+    { nombre: "", cantidad: 0, precioUnitario: 0, codigo: "", costo: 0 },
   ]);
 
   const [catalogo, setCatalogo] = useState<ItemCatalogo[]>([]);
@@ -77,14 +78,17 @@ export default function FacturaCompra() {
       if (item) {
         copia[index].precioUnitario = item.precio;
         copia[index].codigo = item.codigo;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (copia[index] as any).costo = (item as any).costo || 0;
       } else {
         copia[index].codigo = "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (copia[index] as any).costo = 0;
       }
     }
 
     setProductos(copia);
   };
-
   const actualizarCodigoProducto = (index: number, valor: string) => {
     const copia = [...productos];
     copia[index].codigo = valor;
@@ -101,7 +105,7 @@ export default function FacturaCompra() {
   const agregarFila = () => {
     setProductos([
       ...productos,
-      { nombre: "", cantidad: 0, precioUnitario: 0, codigo: "" },
+      { nombre: "", cantidad: 0, precioUnitario: 0, codigo: "", costo:0 },
     ]);
   };
 
@@ -109,7 +113,7 @@ export default function FacturaCompra() {
     setGuardando(true);
 
     for (const p of productos) {
-      if (!p.nombre || !p.codigo || p.cantidad <= 0 || p.precioUnitario <= 0) {
+      if (!p.nombre || !p.codigo || p.cantidad <= 0 || p.precioUnitario <= 0  ) {
         alert(
           "Todos los productos deben tener nombre, código, cantidad y precio mayor a 0"
         );
@@ -117,6 +121,11 @@ export default function FacturaCompra() {
         return;
       }
     }
+
+    const productosPayload = productos.map(p => ({
+  ...p,
+  costo: p.costo ?? 0, // si es null o undefined → 0
+}));
 
     try {
       const payload = {
@@ -126,11 +135,11 @@ export default function FacturaCompra() {
         direccion,
         numeroDocumento,
         tipoDocumento,
-        productos,
+          productos: productosPayload,
       };
       await api.post("/facturas", payload);
       alert("✅ Factura guardada con éxito");
-
+ console.log("👉 Enviando factura:", payload);
       // reset
       setEmpresa("");
       setRut("");
@@ -217,9 +226,10 @@ export default function FacturaCompra() {
         <thead>
           <tr className="bg-gray-100">
             <th className="border p-1">Producto</th>
+            <th className="border p-1">Código</th>
             <th className="border p-1">Cantidad</th>
             <th className="border p-1">Precio Unitario</th>
-            <th className="border p-1">Código</th>
+            <th className="border p-1">Costo</th>
           </tr>
         </thead>
         <tbody>
@@ -238,6 +248,14 @@ export default function FacturaCompra() {
                     </option>
                   ))}
                 </select>
+              </td>
+                  <td className="border p-1">
+                <input
+                  type="text"
+                  value={p.codigo}
+                  onChange={(e) => actualizarCodigoProducto(i, e.target.value)}
+                  className="border p-1 w-full"
+                />
               </td>
               <td className="border p-1">
                 <input
@@ -259,14 +277,16 @@ export default function FacturaCompra() {
                   className="border p-1 w-full"
                 />
               </td>
-              <td className="border p-1">
+                   <td className="border p-1">
                 <input
-                  type="text"
-                  value={p.codigo}
-                  onChange={(e) => actualizarCodigoProducto(i, e.target.value)}
+                  type="number"
+                  value={p.costo || 0}
+                  onChange={(e) =>
+                    actualizarProducto(i, "costo", Number(e.target.value))
+                  }
                   className="border p-1 w-full"
                 />
-              </td>
+              </td> 
             </tr>
           ))}
         </tbody>

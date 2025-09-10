@@ -29,6 +29,7 @@ router.post('/', verifyToken, async (req, res) => {
       existente.precio = precio;
       existente.fecha = new Date(fecha);
       existente.modificadoPor = req.user;
+      existente.costo = costo ?? existente.costo;
       if (codigo) existente.codigo = codigo;
       await existente.save();
       mensaje = '📝 Actualizado';
@@ -70,6 +71,7 @@ router.get('/', verifyToken, async (req, res) => {
 
     const [items, total] = await Promise.all([
       Item.find(filtros)
+        .select('nombre precio codigo costo')
         .populate('modificadoPor', 'name email')
         .skip(skip)
         .limit(Number(limit))

@@ -23,23 +23,24 @@ router.post("/", async (req, res) => {
       }
 
       if (item) {
-        item.cantidad = (item.cantidad || 0) + producto.cantidad;
-        item.precio = producto.precioUnitario;
-        item.fecha = new Date();
-        // Si tienes req.user, puedes asignarlo: item.modificadoPor = req.user;
-        if (producto.codigo) item.codigo = producto.codigo;
-        await item.save();
-      } else {
-        const nuevoItem = new Item({
-          nombre: producto.nombre,
-          cantidad: producto.cantidad,
-          precio: producto.precioUnitario,
-          fecha: new Date(),
-          codigo: producto.codigo,
-          // modificadoPor: req.user
-        });
-        await nuevoItem.save();
-      }
+  item.cantidad = (item.cantidad || 0) + producto.cantidad;
+  item.precio = producto.precioUnitario;
+  item.costo = producto.costo; // 👈 agregar esta línea
+  item.fecha = new Date();
+  if (producto.codigo) item.codigo = producto.codigo;
+  await item.save();
+} else {
+  const nuevoItem = new Item({
+    nombre: producto.nombre,
+    cantidad: producto.cantidad,
+    precio: producto.precioUnitario,
+    costo: producto.costo || 0, // 👈 agregar costo aquí también
+    fecha: new Date(),
+    codigo: producto.codigo,
+  });
+  await nuevoItem.save();
+}
+
     }
 
     res.status(201).json(guardada);

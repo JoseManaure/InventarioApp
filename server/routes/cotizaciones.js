@@ -66,18 +66,30 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
 
-    // ✅ Normalizar productos
-    const productosValidados = productos.map((p) => {
-      const cantidad = Number(p.cantidad || 0);
-      const precio = Number(p.precio || 0);
-      return {
-        itemId: p.itemId,
-        cantidad,
-        nombre: p.nombre, 
-        precio,
-        total: cantidad * precio,
-      };
-    });
+    // ✅ Normalizar productos con costo incluido
+const productosValidados = await Promise.all(productos.map(async (p) => {
+  const cantidad = Number(p.cantidad || 0);
+  const precio = Number(p.precio || 0);
+
+  // Obtener costo desde Item si existe
+  let costo = 0;
+  if (p.itemId) {
+    const item = await Item.findById(p.itemId);
+    if (item) {
+      costo = item.costo ?? 0;
+    }
+  }
+
+  return {
+    itemId: p.itemId,
+    cantidad,
+    nombre: p.nombre,
+    precio,
+    costo,             // ✅ agregamos el costo aquí
+    total: cantidad * precio,
+  };
+}));
+
 
     const total = productosValidados.reduce((acc, p) => acc + p.total, 0);
 
@@ -181,7 +193,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.get('/', verifyToken, async (req, res) => {
   try {
     const cotizaciones = await Cotizacion.find()
-      .populate("productos.itemId", "nombre")
+      .populate("productos.itemId", "nombre costo")
       .sort({ createdAt: -1 });
     res.json(cotizaciones);
   } catch (error) {
@@ -202,7 +214,7 @@ router.get("/:id", async (req, res) => {
     // 🔹 Si el parámetro es un estado válido
     if (estadosValidos.includes(id)) {
       resultado = await Cotizacion.find({ estado: id })
-        .populate("productos.itemId")
+        .populate("productos.itemId " , "nombre costo")
         .lean();
 
       // Asignar siempre nombre de producto

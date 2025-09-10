@@ -5,6 +5,7 @@ const ProductoSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
   cantidad: { type: Number, required: true },
   precioUnitario: { type: Number, required: true },
+   costo: { type: Number, default: 0 }
 });
 
 const FacturaSchema = new mongoose.Schema({
