@@ -238,7 +238,7 @@ export default function NotasDeVenta() {
                       {nota.pdfUrl ? (
                         <button
                           onClick={() => {
-                            setPdfUrl(`${API_URL}${nota.pdfUrl}`);
+                            setPdfUrl(`${import.meta.env.VITE_API_URL}${nota.pdfUrl}`);
                             setShowPdfModal(true);
                           }}
                           className="text-blue-600 hover:text-blue-800"
