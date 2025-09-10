@@ -71,7 +71,7 @@ router.get('/', verifyToken, async (req, res) => {
 
     const [items, total] = await Promise.all([
       Item.find(filtros)
-        .select('nombre precio codigo costo')
+        .select('nombre precio codigo costo cantidad')
         .populate('modificadoPor', 'name email')
         .skip(skip)
         .limit(Number(limit))
