@@ -58,6 +58,7 @@ const upload = multer({ storage });
 
 // Servir PDFs de manera pública
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Ruta para subir PDFs de cotizaciones
 const Cotizacion = require('./models/Cotizacion');

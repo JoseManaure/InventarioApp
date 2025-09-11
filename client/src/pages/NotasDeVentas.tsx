@@ -2,7 +2,6 @@
 import { useEffect, useState, useMemo } from "react";
 import api from "../api/api";
 import { FileText, Trash2, CreditCard, Truck, Percent } from "lucide-react";
-import { generarGuiaPDF } from "../utils/pdf";
 import GananciaModal from "../components/GananciaModal";
 
 interface Producto {
@@ -37,13 +36,15 @@ export default function NotasDeVenta() {
     return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
   });
   const [pagina, setPagina] = useState(1);
-  const [, setShowPdfModal] = useState(false);
-  const [, setPdfUrl] = useState<string | null>(null);
-  const [payingId, setPayingId] = useState<string | null>(null);
 
+  // 👇 cambiamos para usar estados de PDF modal
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [, setShowGuiaModal] = useState(false);
   const [guiaNota] = useState<NotaDeVenta | null>(null);
-  const [despachoCantidades] = useState<number[]>([]); // ✅ agregado para evitar error
+  const [despachoCantidades] = useState<number[]>([]);
 
   // 🔥 Ganancia modal
   const [showGananciaModal, setShowGananciaModal] = useState(false);
@@ -71,7 +72,9 @@ export default function NotasDeVenta() {
     setProgressVisible(true);
     try {
       const res = await api.get("/cotizaciones");
-      const todasNotas: NotaDeVenta[] = res.data.filter((c: NotaDeVenta) => c.tipo === "nota");
+      const todasNotas: NotaDeVenta[] = res.data.filter(
+        (c: NotaDeVenta) => c.tipo === "nota"
+      );
       setNotas(todasNotas);
     } catch (err) {
       console.error("Error al cargar notas de venta", err);
@@ -122,6 +125,28 @@ export default function NotasDeVenta() {
     } finally {
       setPayingId(null);
     }
+  };
+
+  // 📲 Enviar WhatsApp con PDF
+  const enviarWhatsapp = (nota: NotaDeVenta, pdfUrl: string) => {
+    const numero = "569XXXXXXXX"; // ⚠️ reemplazar con número real si lo guardas en DB
+    const neto = nota.productos.reduce(
+      (a, p) => a + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
+      0
+    );
+    const iva = Math.round(neto * 0.19);
+    const total = neto + iva;
+
+    const mensaje = `Hola ${nota.cliente}, te envío tu nota de venta #${nota._id}.
+    
+Total: $${total.toLocaleString("es-CL")}
+Método de pago: ${nota.metodoPago}
+Fecha de entrega: ${nota.fechaEntrega || "Por confirmar"}
+
+Puedes ver el documento aquí: ${pdfUrl}`;
+
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, "_blank");
   };
 
   const notasFiltradas = useMemo(() => {
@@ -212,7 +237,8 @@ export default function NotasDeVenta() {
               notasPaginadas.map((nota) => {
                 const neto = Math.round(
                   nota.productos?.reduce(
-                    (acc, p) => acc + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
+                    (acc, p) =>
+                      acc + (Number(p.cantidad) || 0) * (Number(p.precio) || 0),
                     0
                   ) || 0
                 );
@@ -223,14 +249,20 @@ export default function NotasDeVenta() {
                 return (
                   <tr
                     key={nota._id}
-                    className={`${estaAnulada ? "bg-red-50" : "bg-white"} border-b hover:bg-gray-50`}
+                    className={`${
+                      estaAnulada ? "bg-red-50" : "bg-white"
+                    } border-b hover:bg-gray-50`}
                   >
                     <td className="p-3">{nota.cliente}</td>
                     <td className="p-3">{nota.direccion}</td>
                     <td className="p-3">{formatearFecha(nota.fechaEntrega)}</td>
                     <td className="p-3">{nota.metodoPago}</td>
-                    <td className="p-3 text-right">${neto.toLocaleString("es-CL")}</td>
-                    <td className="p-3 text-right">${iva.toLocaleString("es-CL")}</td>
+                    <td className="p-3 text-right">
+                      ${neto.toLocaleString("es-CL")}
+                    </td>
+                    <td className="p-3 text-right">
+                      ${iva.toLocaleString("es-CL")}
+                    </td>
                     <td className="p-3 text-right font-semibold">
                       ${total.toLocaleString("es-CL")}
                     </td>
@@ -238,7 +270,9 @@ export default function NotasDeVenta() {
                       {nota.pdfUrl ? (
                         <button
                           onClick={() => {
-                            setPdfUrl(`${import.meta.env.VITE_API_URL}${nota.pdfUrl}`);
+                            setPdfUrl(
+                              `${import.meta.env.VITE_API_URL}${nota.pdfUrl}`
+                            );
                             setShowPdfModal(true);
                           }}
                           className="text-blue-600 hover:text-blue-800"
@@ -268,7 +302,9 @@ export default function NotasDeVenta() {
                             <CreditCard className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => (window.location.href = `/guias/${nota._id}`)}
+                            onClick={() =>
+                              (window.location.href = `/guias/${nota._id}`)
+                            }
                             className="text-blue-600 hover:text-blue-800"
                             title="Guías"
                           >
@@ -286,7 +322,9 @@ export default function NotasDeVenta() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-red-600 font-semibold">Anulada</span>
+                        <span className="text-red-600 font-semibold">
+                          Anulada
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -340,6 +378,58 @@ export default function NotasDeVenta() {
         onClose={() => setShowGananciaModal(false)}
         productos={productosGanancia}
       />
+
+      {/* 📄 PDF Modal */}
+      {showPdfModal && pdfUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-3/4 h-5/6 relative flex flex-col">
+            <button
+              onClick={() => setShowPdfModal(false)}
+              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
+            >
+              ✕
+            </button>
+
+            <iframe
+              src={pdfUrl}
+              className="w-full flex-grow rounded-b-lg"
+              title="PDF Preview"
+            />
+
+            <div className="p-4 flex justify-end gap-3 border-t">
+              <button
+                onClick={() =>
+                  enviarWhatsapp(
+                    notas.find(
+                      (n) => `${import.meta.env.VITE_API_URL}${n.pdfUrl}` === pdfUrl
+                    )!,
+                    pdfUrl
+                  )
+                }
+                className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg"
+              >
+                📲 Enviar por WhatsApp
+              </button>
+
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg"
+              >
+                📥 Descargar
+              </a>
+
+              <button
+                onClick={() => setShowPdfModal(false)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"
+              >
+                ❌ Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
