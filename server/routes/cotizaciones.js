@@ -85,7 +85,7 @@ const productosValidados = await Promise.all(productos.map(async (p) => {
     cantidad,
     nombre: p.nombre,
     precio,
-    costo,             // ✅ agregamos el costo aquí
+    costo,             
     total: cantidad * precio,
   };
 }));
@@ -180,7 +180,18 @@ const productosValidados = await Promise.all(productos.map(async (p) => {
       }
     }
 
-    res.status(201).json(cotizacion);
+    // 📌 Validar stock y generar warnings (pero no bloquear)
+let warnings = [];
+for (const p of productos) {
+  if (tipo === 'nota') {
+    const item = await Item.findById(p.itemId);
+    if (item && item.cantidad < p.cantidad) {
+      warnings.push(`Stock insuficiente para ${item.nombre}. Disponible: ${item.cantidad}, solicitado: ${p.cantidad}`);
+    }
+  }
+}
+
+    res.status(201).json(cotizacion, warnings );
   } catch (error) {
     console.error('Error al crear o actualizar cotización:', error);
     res.status(500).json({ error: 'Error al crear o actualizar cotización' });
@@ -299,9 +310,7 @@ router.post('/:id/convertir-a-nota', verifyToken, async (req, res) => {
 // =========================
 // 📌 Actualizar (PUT)
 // =========================
-// PUT actualizar cotización
-// PUT actualizar cotización
-// PUT actualizar cotización
+
 // server/routes/cotizaciones.js
 router.put('/:id', verifyToken, async (req, res) => {
   try {

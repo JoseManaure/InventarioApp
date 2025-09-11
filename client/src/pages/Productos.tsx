@@ -35,7 +35,6 @@ export default function InventarioVista() {
       const nuevosItems = Array.isArray(res.data.items) ? res.data.items : [];
       setItems(prev => reset ? nuevosItems : [...prev, ...nuevosItems]);
       setPages(res.data.pages || 1);
-      console.log(res.data.items)
     } catch (err) {
       console.error(err);
     } finally {
