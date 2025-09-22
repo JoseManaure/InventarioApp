@@ -371,4 +371,28 @@ router.delete("/:id", verifyToken, async (req, res) => {
   }
 });
 
+
+// =========================
+// Marcar guía como completada
+// =========================
+router.post("/:id/complete", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "ID de guía no válido" });
+    }
+
+    const guia = await GuiaDespacho.findById(id);
+    if (!guia) return res.status(404).json({ error: "Guía no encontrada" });
+
+    guia.estado = "completada";
+    await guia.save();
+
+    res.json({ ok: true, guia });
+  } catch (err) {
+    console.error("Error completando guía:", err);
+    res.status(500).json({ error: "Error al completar guía" });
+  }
+});
+
 module.exports = router;
