@@ -3,12 +3,63 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
+const { Server } = require("socket.io");
+const http = require("http");
+
 require('dotenv').config();
 
 const app = express();
 
 // Middlewares
 app.use(express.json());
+
+
+//Mapa
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+
+
+// Simulamos base de datos de guías
+let guias = {}; 
+// guias = { guiaId: { lat: number, lng: number, estado: 'En camino' | 'Entregado' } }
+
+// Chofer envía ubicación
+app.post("/delivery/:guiaId/location", (req, res) => {
+  const { guiaId } = req.params;
+  const { lat, lng } = req.body;
+  if (!lat || !lng) return res.status(400).json({ error: "Faltan coordenadas" });
+
+  guias[guiaId] = { ...(guias[guiaId] || {}), lat, lng, estado: "En camino" };
+
+  // Notificamos a todos los clientes conectados
+  io.to(guiaId).emit("locationUpdate", guias[guiaId]);
+
+  res.json({ ok: true });
+});
+
+// Chofer marca entrega completada
+app.post("/delivery/:guiaId/complete", (req, res) => {
+  const { guiaId } = req.params;
+  if (!guias[guiaId]) return res.status(404).json({ error: "Guía no encontrada" });
+
+  guias[guiaId].estado = "Entregado";
+  io.to(guiaId).emit("locationUpdate", guias[guiaId]);
+  res.json({ ok: true });
+});
+
+// Cliente se conecta a guía específica para recibir updates
+io.on("connection", (socket) => {
+  socket.on("joinGuia", (guiaId) => {
+    socket.join(guiaId);
+    if (guias[guiaId]) {
+      socket.emit("locationUpdate", guias[guiaId]);
+    }
+  });
+});
+
+
+
 
 // Salud
 app.get('/health', (_req, res) => res.status(200).send('ok'));
@@ -89,7 +140,12 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error(err));
 
 // Iniciar servidor
+//const PORT = process.env.PORT || 3000;
+//app.listen(PORT, () => {
+ // console.log(`🚀 API corriendo en http://localhost:${PORT}`);
+// });
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 API corriendo en http://localhost:${PORT}`);
 });

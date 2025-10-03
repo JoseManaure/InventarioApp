@@ -28,6 +28,7 @@
     "pdfkit": "^0.17.1",
     "puppeteer": "^24.15.0",
     "puppeteer-core": "^24.17.0",
+    "socket.io": "^4.8.1",
     "string-similarity": "^4.0.4",
     "stripe": "^18.4.0"
   },
