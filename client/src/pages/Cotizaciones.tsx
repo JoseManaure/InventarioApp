@@ -1,159 +1,68 @@
-// src/pages/Cotizaciones.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import api from '../api/api';
-import type { Item } from '../types/Item';
-import { generarGuiaPDF } from '../utils/pdf';
 import { useParams, useNavigate } from 'react-router-dom';
+import { generarGuiaPDF } from '../utils/pdf';
+import api from '../api/api';
 
 import BuscadorProductos from '../components/BuscadorProductos';
 import FormularioCliente from '../components/FormularioCliente';
 import AccionesCotizacion from '../components/AccionesCotizacion';
 import ResumenTablaProductos from '../components/ResumenTablaProductos';
 
-interface ProductoResumen {
-  id: string;
-  nombre: string;
-  cantidad: number;
-  precio: number;
-  total: number;
-}
+import { useCotizacion } from '../hooks/useCotizacion';
+import type { ProductoResumen } from '../hooks/useCotizacion';
+import type { Item } from '../types/Item';
 
 export default function Cotizaciones() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [cliente, setCliente] = useState('');
-  const [rutCliente, setRutCliente] = useState('');
-  const [direccion, setDireccion] = useState('');
-  const [fechaEntrega, setFechaEntrega] = useState('');
-  const [metodoPago, setMetodoPago] = useState('efectivo');
-  const [tipo, setTipo] = useState<'cotizacion' | 'nota'>('cotizacion');
-  const [correlativo, setCorrelativo] = useState<number | null>(null);
-  const [, setItems] = useState<Item[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Record<string, { cantidad: number; nombre: string; precio: number }>>({});
+  const {
+    cliente, setCliente,
+    rutCliente, setRutCliente,
+    direccion, setDireccion,
+    fechaEntrega, setFechaEntrega,
+    metodoPago, setMetodoPago,
+    tipo, setTipo,
+    selectedItems,
+    agregarItem,
+    handleCantidadChange,
+    handlePrecioChange,
+    eliminarProducto,
+    calcularResumen,
+    giroCliente, setGiroCliente,
+    direccionCliente, setDireccionCliente,
+    comunaCliente, setComunaCliente,
+    ciudadCliente, setCiudadCliente,
+    atencion, setAtencion,
+    emailCliente, setEmailCliente,
+    telefonoCliente, setTelefonoCliente,
+    formaPago, setFormaPago,
+    nota, setNota
+  } = useCotizacion(id);
+
   const [busqueda, setBusqueda] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [enviando, setEnviando] = useState(false);
-
-  const [formaPago, setFormaPago] = useState("65% Al inicio y 35% al momento de la entrega.");
-  const [nota, setNota] = useState("Esta cotización es aceptada después de cancelado el 65%.");
-  const [giroCliente, setGiroCliente] = useState('');
-  const [direccionCliente, setDireccionCliente] = useState('');
-  const [comunaCliente, setComunaCliente] = useState('');
-  const [ciudadCliente, setCiudadCliente] = useState('Santiago');
-  const [atencion, setAtencion] = useState('');
-  const [emailCliente, setEmailCliente] = useState('');
-  const [telefonoCliente, setTelefonoCliente] = useState('');
-
-  useEffect(() => {
-    let mounted = true;
-
-    const cargarItems = async () => {
-      try {
-        const res = await api.get('/items');
-        if (!mounted) return;
-        const data = Array.isArray(res.data) ? res.data : res.data.items || [];
-        setItems(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    const cargarCotizacion = async () => {
-      if (!id) return;
-      try {
-        const res = await api.get(`/cotizaciones/${id}`);
-        if (!mounted) return;
-        const d = res.data;
-
-        setCliente(d.cliente || '');
-        setRutCliente(d.rutCliente || '');
-        setDireccion(d.direccion || '');
-        setDireccionCliente(d.direccionCliente || '');
-        setComunaCliente(d.comunaCliente || '');
-        setCiudadCliente(d.ciudadCliente || 'Santiago');
-        setFechaEntrega(d.fechaEntrega || '');
-        setMetodoPago(d.metodoPago || 'efectivo');
-        setTipo(d.tipo || 'cotizacion');
-        setGiroCliente(d.giroCliente || '');
-        setAtencion(d.atencion || '');
-        setEmailCliente(d.emailCliente || '');
-        setTelefonoCliente(d.telefonoCliente || '');
-        setFormaPago(d.formaPago ?? "");
-        setNota(d.nota ?? "");
-
-        const seleccionadosIniciales: Record<string, { cantidad: number; nombre: string; precio: number }> = {};
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (d.productos || []).forEach((p: any) => {
-          const idProd = (p.itemId?._id || p.itemId || p._id).toString();
-          seleccionadosIniciales[idProd] = {
-            cantidad: p.cantidad || 1,
-            nombre: p.nombre || p.itemId?.nombre || '[Eliminado]',
-            precio: p.precio || p.itemId?.precio || 0
-          };
-        });
-        setSelectedItems(seleccionadosIniciales);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    cargarItems().then(() => cargarCotizacion());
-    return () => { mounted = false; }
-  }, [id]);
-
-  const handleCantidadChange = (id: string, cantidad: number) => {
-    setSelectedItems(prev => {
-      const copia = { ...prev };
-      if (cantidad <= 0) delete copia[id];
-      else copia[id] = { ...copia[id], cantidad };
-      return copia;
-    });
-  };
-
-  const handlePrecioChange = (id: string, precio: number) => {
-    setSelectedItems(prev => ({ ...prev, [id]: { ...prev[id], precio } }));
-  };
-
-  const eliminarProducto = (id: string) => {
-    setSelectedItems(prev => { const copia = { ...prev }; delete copia[id]; return copia; });
-  };
-
-  const calcularResumen = () => {
-    const seleccionados: ProductoResumen[] = Object.entries(selectedItems).map(([id, data]) => ({
-      id,
-      nombre: data.nombre,
-      cantidad: data.cantidad,
-      precio: data.precio,
-      total: data.cantidad * data.precio
-    }));
-
-    const subtotal = seleccionados.reduce((acc, p) => acc + p.total, 0);
-    const iva = subtotal * 0.19;
-    const total = subtotal + iva;
-
-    return { seleccionados, subtotal, iva, total };
-  };
+  const [correlativo, setCorrelativo] = useState<number | null>(null);
 
   const { seleccionados, subtotal, iva, total } = calcularResumen();
 
+  // 🔹 Funciones locales para crear y actualizar cotización
+  const fetchCrearCotizacion = async (data: any) => {
+    const res = await api.post('/cotizaciones', data);
+    return res.data;
+  };
+
+  const fetchActualizarCotizacion = async (id: string, data: any) => {
+    const res = await api.put(`/cotizaciones/${id}`, data);
+    return res.data;
+  };
+
   const guardarBorrador = async () => {
     try {
-      await api.post('/cotizaciones', {
-        cliente, direccion, fechaEntrega, metodoPago,
-        tipo, rutCliente, giroCliente, formaPago,
-        nota, direccionCliente, comunaCliente, ciudadCliente, atencion,
-        emailCliente, telefonoCliente, estado: "borrador",
-        productos: seleccionados.map(p => ({
-          itemId: p.id.toString(), // 🔹 forzar string
-          cantidad: p.cantidad,
-          nombre: p.nombre,
-          precio: p.precio,
-          total: p.total
-        }))
-      });
+      await fetchCrearCotizacion({ estado: 'borrador' });
       alert('✅ Borrador guardado');
       navigate("/ver-borradores");
     } catch {
@@ -171,7 +80,7 @@ export default function Cotizaciones() {
         comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
         formaPago, nota, fechaHoy: new Date().toLocaleDateString(), fechaEntrega, metodoPago, tipo,
         productos: seleccionados.map(p => ({
-          itemId: p.id.toString(), // 🔹 forzar string
+          itemId: p.id.toString(),
           cantidad: p.cantidad,
           nombre: p.nombre,
           precio: p.precio,
@@ -179,13 +88,13 @@ export default function Cotizaciones() {
         }))
       };
       let res;
-      if (id) res = await api.put(`/cotizaciones/${id}`, data);
-      else res = await api.post('/cotizaciones', data);
+      if (id) res = await fetchActualizarCotizacion(id, data);
+      else res = await fetchCrearCotizacion(data);
 
-      setCorrelativo(res.data.numero);
+      setCorrelativo(res.numero);
 
       const pdfBlob = generarGuiaPDF(cliente, seleccionados, {
-        fechaEntrega, metodoPago, tipoDocumento: tipo, rutCliente, numeroDocumento: res.data.numero,
+        fechaEntrega, metodoPago, tipoDocumento: tipo, rutCliente, numeroDocumento: res.numero,
         giroCliente, direccionCliente, comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
         tipo, direccion, formaPago, nota
       });
@@ -195,11 +104,9 @@ export default function Cotizaciones() {
       setShowPdfModal(true);
 
       const fd = new FormData();
-      fd.append('file', new File([pdfBlob], `cotizacion-${res.data.numero}.pdf`, { type: 'application/pdf' }));
-      fd.append('cotizacionId', res.data._id);
-      await api.post('/cotizaciones/upload-pdf', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      fd.append('file', new File([pdfBlob], `cotizacion-${res.numero}.pdf`, { type: 'application/pdf' }));
+      fd.append('cotizacionId', res._id);
+      await api.post('/cotizaciones/upload-pdf', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
 
       alert('✅ Cotización creada/actualizada');
     } catch (err) {
@@ -213,7 +120,7 @@ export default function Cotizaciones() {
   const enviarWhatsapp = () => {
     if (!telefonoCliente) { alert("⚠️ El cliente no tiene número de teléfono"); return; }
     const numero = telefonoCliente.replace(/\s+/g, "");
-    const linkPDF = `${window.location.origin}/pdfs/doc.pdf`; 
+    const linkPDF = `${window.location.origin}/pdfs/doc.pdf`;
     const mensaje = `Hola ${cliente}, te envío la ${tipo === "nota" ? "nota de venta" : "cotización"} N°${correlativo ?? "pendiente"}.
 
 Total: $${total.toLocaleString("es-CL")}
@@ -247,7 +154,6 @@ Puedes descargar el documento aquí: ${linkPDF}
       <FormularioCliente
         cliente={cliente} setCliente={setCliente}
         rutCliente={rutCliente} setRutCliente={setRutCliente}
-        direccion={direccion} setDireccion={setDireccion}
         fechaEntrega={fechaEntrega} setFechaEntrega={setFechaEntrega}
         disableTipo={!!id}
         metodoPago={metodoPago} setMetodoPago={setMetodoPago}
@@ -259,6 +165,7 @@ Puedes descargar el documento aquí: ${linkPDF}
         atencion={atencion} setAtencion={setAtencion}
         emailCliente={emailCliente} setEmailCliente={setEmailCliente}
         telefonoCliente={telefonoCliente} setTelefonoCliente={setTelefonoCliente}
+        direccion={direccion} setDireccion={setDireccion}
         formaPago={formaPago} setFormaPago={setFormaPago}
         nota={nota} setNota={setNota}
       />
@@ -267,14 +174,7 @@ Puedes descargar el documento aquí: ${linkPDF}
         <BuscadorProductos
           busqueda={busqueda}
           setBusqueda={setBusqueda}
-          onAgregar={(item) => setSelectedItems(prev => ({
-            ...prev,
-            [item._id.toString()]: {
-              cantidad: (prev[item._id.toString()]?.cantidad || 0) + 1,
-              nombre: item.nombre,
-              precio: prev[item._id.toString()]?.precio ?? item.precio
-            }
-          }))}
+          onAgregar={agregarItem}
         />
       </div>
 

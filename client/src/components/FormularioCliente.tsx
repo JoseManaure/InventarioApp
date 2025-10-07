@@ -34,26 +34,24 @@ interface Props {
   setNota?: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export default function FormularioCliente(props: Props) {
-  const {
-    cliente, setCliente,
-    rutCliente, setRutCliente,
-    direccion, setDireccion,
-    fechaEntrega, setFechaEntrega,
-    metodoPago, setMetodoPago,
-    tipo, setTipo,
-    giroCliente, setGiroCliente,
-    direccionCliente, setDireccionCliente,
-    comunaCliente, setComunaCliente,
-    ciudadCliente, setCiudadCliente,
-    atencion, setAtencion,
-    emailCliente, setEmailCliente,
-    telefonoCliente, setTelefonoCliente,
-    disableTipo = false,
-    formaPago, setFormaPago,
-    nota, setNota,
-  } = props;
-
+export default function FormularioCliente({
+  disableTipo = false,
+  cliente, setCliente,
+  rutCliente, setRutCliente,
+  direccion, setDireccion,
+  fechaEntrega, setFechaEntrega,
+  metodoPago, setMetodoPago,
+  tipo, setTipo,
+  giroCliente, setGiroCliente,
+  direccionCliente, setDireccionCliente,
+  comunaCliente, setComunaCliente,
+  ciudadCliente, setCiudadCliente,
+  atencion, setAtencion,
+  emailCliente, setEmailCliente,
+  telefonoCliente, setTelefonoCliente,
+  formaPago, setFormaPago,
+  nota, setNota
+}: Props) {
   return (
     <div className="space-y-4">
       {/* Datos principales */}
@@ -66,8 +64,6 @@ export default function FormularioCliente(props: Props) {
           className="input input-bordered w-48"
         />
 
-        
-        {/* Dirección del cliente (detallada) */}
         <input
           type="text"
           placeholder="Dirección Cliente"
@@ -94,7 +90,6 @@ export default function FormularioCliente(props: Props) {
 
         <input
           type="date"
-          placeholder="Fecha Entrega"
           value={fechaEntrega ? new Date(fechaEntrega).toISOString().split('T')[0] : ''}
           onChange={e => setFechaEntrega(e.target.value)}
           className="input input-bordered w-48"
@@ -129,71 +124,65 @@ export default function FormularioCliente(props: Props) {
         />
       </div>
 
-     {/* Datos adicionales */} 
-<h2 className="text-sm font-semibold text-gray-600">Datos Adicionales del Cliente</h2>
-<div className="flex flex-wrap gap-2">
-  <input
-    type="text"
-    placeholder="RUT"
-    value={rutCliente}
-    onChange={e => setRutCliente(e.target.value)}
-    className="input input-bordered w-36"
-  />
+      {/* Datos adicionales */}
+      <h2 className="text-sm font-semibold text-gray-600">Datos Adicionales del Cliente</h2>
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="text"
+          placeholder="RUT"
+          value={rutCliente}
+          onChange={e => setRutCliente(e.target.value)}
+          className="input input-bordered w-36"
+        />
 
-  <input
-    type="text"
-    placeholder="Giro"
-    value={giroCliente}
-    onChange={e => setGiroCliente(e.target.value)}
-    className="input input-bordered w-48"
-  />
+        <input
+          type="text"
+          placeholder="Giro"
+          value={giroCliente}
+          onChange={e => setGiroCliente(e.target.value)}
+          className="input input-bordered w-48"
+        />
 
-  <input
-    type="text"
-    placeholder="Atención"
-    value={atencion}
-    onChange={e => setAtencion(e.target.value)}
-    className="input input-bordered w-48"
-  />
+        <input
+          type="text"
+          placeholder="Atención"
+          value={atencion}
+          onChange={e => setAtencion(e.target.value)}
+          className="input input-bordered w-48"
+        />
 
-  {/* NUEVOS CAMPOS */}
-  <div className="w-full md:w-1/2">
-    <label className="block text-sm font-medium text-gray-700">Forma de Pago</label>
-    <textarea
-      value={formaPago}
-      onChange={e => setFormaPago && setFormaPago(e.target.value)}
-      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-      rows={2}
-    />
-  </div>
+        <textarea
+          placeholder="Forma de Pago"
+          value={formaPago}
+          onChange={e => setFormaPago && setFormaPago(e.target.value)}
+          className="input input-bordered w-full md:w-1/2"
+          rows={2}
+        />
 
-  <div className="w-full md:w-1/2">
-    <label className="block text-sm font-medium text-gray-700">Nota</label>
-    <textarea
-      value={nota}
-      onChange={e => setNota && setNota(e.target.value)}
-      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-      rows={2}
-    />
-  </div>
+        <textarea
+          placeholder="Nota"
+          value={nota}
+          onChange={e => setNota && setNota(e.target.value)}
+          className="input input-bordered w-full md:w-1/2"
+          rows={2}
+        />
 
-  {/* Dirección general (para notas de venta) */}
-  <input
-    type="text"
-    placeholder="Dirección (para documento)"
-    value={direccion}
-    onChange={e => setDireccion(e.target.value)}
-    className="input input-bordered w-60"
-  />
+        <input
+          type="text"
+          placeholder="Dirección (para documento)"
+          value={direccion}
+          onChange={e => setDireccion(e.target.value)}
+          className="input input-bordered w-60"
+        />
 
-  <input
-    type="email"
-    placeholder="Correo"
-    value={emailCliente}
-    onChange={e => setEmailCliente(e.target.value)}
-    className="input input-bordered w-60"
-  />
-</div>
+        <input
+          type="email"
+          placeholder="Correo"
+          value={emailCliente}
+          onChange={e => setEmailCliente(e.target.value)}
+          className="input input-bordered w-60"
+        />
+      </div>
     </div>
   );
 }
