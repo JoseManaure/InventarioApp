@@ -31,11 +31,12 @@ Permite a pequeñas y medianas empresas llevar control de productos, generar cot
 
 ## 📸 Capturas de pantalla
 
-_Agrega aquí screenshots de las vistas más importantes:_
-- Crear cotización
-- Tabla de productos
-- PDF generado
-- Formulario de cliente
+<img width="1154" height="497" alt="Captura de Pantalla 2025-10-09 a la(s) 16 15 23" src="https://github.com/user-attachments/assets/66adf41e-56f0-4c53-b54d-270743896ddf" />
+
+<img width="1017" height="557" alt="Captura de Pantalla 2025-10-09 a la(s) 16 13 57" src="https://github.com/user-attachments/assets/b33f6c7a-abf5-4752-b54f-031ae5be618d" />
+
+
+
 
 ## ⚙️ Instalación local
 
