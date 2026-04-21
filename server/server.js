@@ -15,7 +15,8 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://inventario-app-woad.vercel.app"
+  "https://inventario-app-woad.vercel.app",
+  "https://inventario-7odk36gf8-joses-projects-e0239e45.vercel.app"
 ];
 
 const corsOptions = {
@@ -33,8 +34,14 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.options("*", cors());
 
 // JSON
 app.use(express.json());
