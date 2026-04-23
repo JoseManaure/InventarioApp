@@ -41,7 +41,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-app.options("*", cors());
 
 // JSON
 app.use(express.json());
@@ -58,11 +57,12 @@ app.get('/api/test', (_req, res) => {
   res.status(200).send('API OK ✅');
 });
 
+app.use('/api/auth', require('./routes/auth'));
+
 /* ==================================================
    RUTAS
 ================================================== */
-
-app.use('/api/auth', require('./routes/auth'));
+/*
 app.use('/api/items', require('./routes/items'));
 app.use('/api/comparador', require('./routes/comparador'));
 app.use('/api/comparar-precios', require('./routes/comparar-precios'));
@@ -72,6 +72,7 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/pagos', require('./routes/pagos'));
 app.use('/api/guias', require('./routes/guias'));
 app.use('/api/llama', require('./routes/llama'));
+================================================== */
 
 /* ==================================================
    MULTER PDFS
