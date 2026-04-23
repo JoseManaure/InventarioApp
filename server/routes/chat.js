@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-  
+const verifyToken = require('../middleware/verifyToken');
 // const OpenAI = require("openai");
 
 // Inicializar cliente de OpenAI
@@ -10,6 +10,35 @@ const router = express.Router();
 //  apiKey: process.env.OPENAI_API_KEY, // ⚠️ debe estar en tu .env
   
 //  });
+
+router.post('/query', verifyToken, async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Falta el prompt' });
+
+    let output = "Respuesta de ejemplo"; // reemplazar con llama.cpp o API
+
+    // RESPUESTA AL USUARIO
+    res.json({ user: req.user.id, response: output.trim() });
+
+    // GUARDADO EN DB
+    const Chat = require('../models/Chat');
+    try {
+      await Chat.create({
+        userId: req.user.id,
+        prompt,
+        response: output.trim()
+      });
+    } catch (err) {
+      console.error("Error guardando chat:", err);
+    }
+  } catch (err) {
+    console.error('Error LLaMA:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
 
 // Ruta para recibir mensajes
 router.post("/", async (req, res) => {
