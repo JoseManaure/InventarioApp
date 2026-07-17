@@ -26,17 +26,51 @@ export interface Producto {
   despachado?: number;
 }
 
-export interface Cotizacion {
-  _id?: string;
+export interface Cliente {
+  _id: string;
 
-  cliente: string;
+  nombre: string;
+
+  rut?: string;
+
+  telefono?: string;
+
+  email?: string;
+}
+
+export interface ClienteSnapshot {
+  nombre: string;
+
+  rut?: string;
+
+  direccion?: string;
+
+  comuna?: string;
+
+  ciudad?: string;
+
+  telefono?: string;
+
+  email?: string;
+
+  giro?: string;
+
+  atencion?: string;
+}
+
+export interface Cotizacion {
+  _id: string;
+
+  cliente: string | Cliente | null;
+
+  clienteSnapshot?: ClienteSnapshot;
+
+  // 👇 Este viene calculado desde el backend
+  nombreCliente: string;
 
   direccion: string;
 
-  metodoPago:
-  | 'transferencia'
-  | 'efectivo'
-  | 'debito';
+  metodoPago: "transferencia" | "efectivo" | "debito";
 
   fechaEntrega: string;
 
@@ -51,4 +85,10 @@ export interface Cotizacion {
   recibidoPor?: string;
 
   tipo?: string;
+
+  rutCliente?: string;
+
+  telefonoCliente?: string;
+
+  emailCliente?: string;
 }

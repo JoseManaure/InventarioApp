@@ -6,6 +6,9 @@ const multer = require('multer');
 const path = require('path');
 const verifyToken = require('./middleware/verifyToken');
 const requireAdmin = require('./middleware/requireAdmin');
+const empresaRoutes = require("./routes/empresaRoutes");
+const proveedoresRoutes = require("./routes/proveedores");
+const clientesRoutes = require("./routes/clientes");
 dotenv.config();
 
 const app = express();
@@ -16,12 +19,12 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:3000",
+  "http://127.0.0.1:8000", // ← AGREGAR
+  "http://localhost:8000", // ← recomendable también
   "http://127.0.0.1:8001",
 
   "https://inventario-app-woad.vercel.app",
   "https://inventario-ncuxjknoc-joses-projects-e0239e45.vercel.app",
-
-  // NUEVA URL
   "https://inventario-dsg3ykta7-joses-projects-e0239e45.vercel.app"
 ];
 
@@ -83,7 +86,6 @@ const generarBoletaXML =
   require('./sii/dte/generarBoletaXML');
 
 app.get('/api/test-xml', async (req, res) => {
-
   const xml = generarBoletaXML({
     folio: 1,
     rutEmpresa: '76XXXXXX-X',
@@ -138,10 +140,11 @@ const upload = multer({
     cb(null, true);
   }
 });
-
+app.use("/api/empresas", empresaRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use("/api/proveedores", proveedoresRoutes);
+app.use("/api/clientes", clientesRoutes);
 /* ==================================================
    SUBIR PDF
 ================================================== */
@@ -212,14 +215,6 @@ app.use((err, req, res, next) => {
 
   next(err);
 });
-/* ==================================================
-   DB
-================================================== */
-
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB conectado'))
-  .catch((err) => console.error('❌ Error MongoDB:', err));
 
 /* ==================================================
    START
@@ -241,5 +236,14 @@ mongoose
     console.error('❌ Error MongoDB:', err);
     process.exit(1);
   });
+
+mongoose.connection.once("open", () => {
+  console.log("================================");
+  console.log("DATABASE:", mongoose.connection.name);
+  console.log("HOST:", mongoose.connection.host);
+  console.log("================================");
+});
+
+
 
 

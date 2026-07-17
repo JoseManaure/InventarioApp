@@ -4,17 +4,13 @@ module.exports = (...rolesPermitidos) => {
 
         if (!req.user) {
             return res.status(401).json({
-                error: 'No autenticado'
+                error: "No autenticado"
             });
         }
 
-        if (
-            !rolesPermitidos.includes(
-                req.user.role
-            )
-        ) {
+        if (!rolesPermitidos.includes(req.user.role)) {
             return res.status(403).json({
-                error: 'No tienes permisos'
+                error: "No tienes permisos"
             });
         }
 

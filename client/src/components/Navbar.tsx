@@ -2,14 +2,15 @@
 
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-
+import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard,
   Boxes,
   FileText,
   FileInput,
   PackageCheck,
-  Users
+  Users,
+  LogOut
 } from 'lucide-react';
 
 const links = [
@@ -27,7 +28,7 @@ const links = [
   },
   {
     path: '/cotizaciones',
-    label: 'Cotizaciones',
+    label: 'Documentos',
     icon: FileText,
     roles: [
       'admin',
@@ -60,13 +61,11 @@ const links = [
     roles: ['admin']
   }
 ];
-
 export default function Navbar() {
-  const user = JSON.parse(
-    localStorage.getItem("user") || "{}"
-  );
+  const { user, logout } = useAuth();
 
-  const role = user?.role;
+  const role = user?.role ?? "";
+
   console.log("USER:", user);
   console.log("ROLE:", role);
   const location = useLocation();
@@ -167,7 +166,31 @@ export default function Navbar() {
 
               );
             })}
+          <li className="ml-auto">
 
+            <button
+              onClick={logout}
+              className="
+    flex items-center gap-3
+    px-4 py-2.5
+    rounded-2xl
+    text-sm font-medium
+    text-red-500
+    hover:bg-red-50
+    dark:hover:bg-red-950/40
+    transition-all
+  "
+            >
+
+              <LogOut className="w-4 h-4" />
+
+              <span>
+                Cerrar sesión
+              </span>
+
+            </button>
+
+          </li>
         </ul>
 
       </div>

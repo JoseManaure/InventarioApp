@@ -1,13 +1,14 @@
 // server/routes/facturas.js
 const express = require('express');
+const Proveedor = require("../models/Proveedor");
 const Factura = require('../models/Factura');
 const Item = require("../models/Item");
 const router = express.Router();
-
 const { generarDTEBoleta } = require('../sii/generarDTE');
 const { generarXMLBoleta } = require('../sii/generarXML');
 const { cargarCertificado } = require('../sii/firmaDigital');
 const { firmarXML } = require('../sii/firmarXML');
+const verifyToken = require('../middleware/verifyToken');
 
 router.get('/test-xml', async (req, res) => {
 
@@ -52,71 +53,207 @@ router.get('/test-dte', async (req, res) => {
 });
 
 // Crear factura y actualizar items correctamente
-router.post("/", async (req, res) => {
-  try {
-    const nueva = new Factura(req.body);
-    const guardada = await nueva.save();
+router.post(
+  "/",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // Guardar empresa automáticamente si no existe
 
-    for (const producto of guardada.productos) {
-      let item;
-      if (producto.codigo) {
-        item = await Item.findOne({ codigo: producto.codigo });
+      // if (req.body.empresa) {
+
+      //   const existe = await Empresa.findOne({
+      //     nombre: req.body.empresa
+      //   })
+
+
+      //   if (!existe) {
+
+      //     await Empresa.create({
+      //       nombre: req.body.empresa,
+      //       rut: req.body.rut,
+      //       direccion: req.body.direccion,
+      //       rol: req.body.rol
+      //     });
+
+      //   }
+
+      // }
+      let proveedor;
+
+      // ------------------------------------
+      // Si viene un ID, buscar por ID
+      // ------------------------------------
+      if (req.body.proveedor) {
+
+        proveedor = await Proveedor.findOne({
+          _id: req.body.proveedor,
+          empresa: req.user.empresa,
+          activo: true
+        });
+
       }
-      if (!item) {
-        item = await Item.findOne({ nombre: producto.nombre });
+
+      // ------------------------------------
+      // Si no existe, buscar por nombre
+      // ------------------------------------
+      if (!proveedor) {
+
+        proveedor = await Proveedor.findOne({
+          empresa: req.user.empresa,
+          nombre: req.body.nombreProveedor.trim(),
+          activo: true
+        });
+
       }
 
-      if (item) {
-        item.cantidad = (item.cantidad || 0) + producto.cantidad;
+      // ------------------------------------
+      // Si tampoco existe, crearlo
+      // ------------------------------------
+      if (!proveedor) {
 
-        // 👇 precio venta
-        item.precio = producto.costo;
+        proveedor = await Proveedor.create({
 
-        // 👇 costo real compra
-        item.costo = producto.precioUnitario;
+          empresa: req.user.empresa,
 
-        item.fecha = new Date();
+          nombre: req.body.nombreProveedor.trim(),
 
+          rut: req.body.rut || "",
+
+          direccion: req.body.direccion || "",
+
+          telefono: req.body.telefono || "",
+
+          email: req.body.email || "",
+
+          contacto: req.body.contacto || "",
+
+          observaciones: ""
+
+        });
+
+        console.log("✅ Proveedor creado automáticamente:", proveedor.nombre);
+
+      }
+
+      if (!proveedor) {
+        return res.status(404).json({
+          error: "Proveedor no encontrado"
+        });
+      }
+      console.log("BODY RECIBIDO");
+      console.log(req.body);
+
+      console.log("EMPRESA TOKEN");
+      console.log(req.user.empresa);
+
+      console.log("PROVEEDOR");
+      console.log(req.body.proveedor);
+
+      // ------------------------------------
+      // Evitar facturas duplicadas
+      // ------------------------------------
+
+      const facturaExistente = await Factura.findOne({
+        empresa: req.user.empresa,
+        proveedor: proveedor._id,
+        numeroDocumento: req.body.numeroDocumento,
+        tipoDocumento: req.body.tipoDocumento
+      });
+
+      if (facturaExistente) {
+        return res.status(409).json({
+          error: "Esta factura ya fue registrada."
+        });
+      }
+
+      const nueva = new Factura({
+        ...req.body,
+
+        empresa: req.user.empresa,
+
+        proveedor: proveedor._id,
+
+        createdBy: req.user.id
+      });
+      const guardada = await nueva.save();
+
+      for (const producto of guardada.productos) {
+        let item;
         if (producto.codigo) {
-          item.codigo = producto.codigo;
+          item = await Item.findOne({
+            empresa: req.user.empresa,
+            nombre: producto.nombre,
+            activo: true
+          });
+        }
+        if (!item) {
+          item = await Item.findOne({
+            empresa: req.user.empresa,
+            nombre: producto.nombre
+          });
         }
 
-        await item.save();
-      } else {
-        const nuevoItem = new Item({
-          nombre: producto.nombre,
-
-          cantidad: producto.cantidad,
+        if (item) {
+          item.cantidad = (item.cantidad || 0) + producto.cantidad;
 
           // 👇 precio venta
-          precio: producto.costo,
+          item.precio = producto.costo;
 
           // 👇 costo real compra
-          costo: producto.precioUnitario,
+          item.costo = producto.precioUnitario;
 
-          fecha: new Date(),
+          item.fecha = new Date();
 
-          codigo: producto.codigo,
-        });
-        await nuevoItem.save();
+          if (producto.codigo) {
+            item.codigo = producto.codigo;
+          }
+
+          await item.save();
+        } else {
+          const nuevoItem = new Item({
+            empresa: req.user.empresa,
+
+            nombre: producto.nombre,
+
+            cantidad: producto.cantidad,
+
+            // 👇 precio venta
+            precio: producto.costo,
+
+            // 👇 costo real compra
+            costo: producto.precioUnitario,
+
+            fecha: new Date(),
+
+            codigo: producto.codigo,
+          });
+          await nuevoItem.save();
+        }
+
       }
 
+      res.status(201).json(guardada);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "No se pudo crear la factura" });
     }
-
-    res.status(201).json(guardada);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "No se pudo crear la factura" });
-  }
-});
+  });
 
 
 // Obtener facturas con filtro por mes
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
+    if (!req.user.empresa) {
+      return res.status(400).json({
+        error: "Usuario sin empresa asignada"
+      });
+    }
     const { mes, pagina = 1, limite = 10 } = req.query;
 
-    const query = {};
+    const query = {
+      empresa: req.user.empresa
+    };
     if (mes) {
       // mes = '2025-08'
       const inicio = new Date(`${mes}-01T00:00:00.000Z`);
@@ -127,14 +264,19 @@ router.get('/', async (req, res) => {
 
     const skip = (Number(pagina) - 1) * Number(limite);
     const total = await Factura.countDocuments(query);
-    const facturas = await Factura.find(query).sort({ fechaCreacion: -1 }).skip(skip).limit(Number(limite));
+    const facturas = await Factura.find(query)
+      .populate("proveedor", "nombre rut direccion telefono email contacto")
+      .populate("createdBy", "name email").sort({ fechaCreacion: -1 }).skip(skip).limit(Number(limite));
 
     res.json({ facturas, total });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo obtener facturas' });
   }
 });
+
+
 
 router.get('/test-certificado', async (req, res) => {
 

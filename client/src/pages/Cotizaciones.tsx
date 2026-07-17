@@ -20,6 +20,8 @@ export default function Cotizaciones() {
 
   const {
     cliente, setCliente,
+    clienteId,
+    setClienteId,
     rutCliente, setRutCliente,
     direccion, setDireccion,
     fechaEntrega, setFechaEntrega,
@@ -48,7 +50,6 @@ export default function Cotizaciones() {
   const [showModalCliente, setShowModalCliente] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [correlativo, setCorrelativo] = useState<number | null>(null);
-
   const resumen = calcularResumen
     ? calcularResumen()
     : { seleccionados: [], subtotal: 0, iva: 0, total: 0 };
@@ -80,11 +81,30 @@ export default function Cotizaciones() {
     setEnviando(true);
 
     try {
+      console.log("FRONTEND FORMA PAGO:", formaPago);
+      console.log("FRONTEND NOTA:", nota);
       const data = {
-        cliente, direccion, rutCliente, giroCliente, direccionCliente,
-        comunaCliente, ciudadCliente, atencion, emailCliente, telefonoCliente,
-        formaPago, nota, fechaHoy: new Date().toLocaleDateString(),
-        fechaEntrega, metodoPago, tipo,
+        cliente,
+        clienteId,
+
+        direccion,
+        rutCliente,
+        giroCliente,
+        direccionCliente,
+        comunaCliente,
+        ciudadCliente,
+        atencion,
+        emailCliente,
+        telefonoCliente,
+
+        formaPago,
+        nota,
+
+        fechaHoy: new Date().toLocaleDateString(),
+        fechaEntrega,
+        metodoPago,
+        tipo,
+
         productos: seleccionados.map(p => ({
           itemId: p.id.toString(),
           cantidad: p.cantidad,
@@ -675,6 +695,8 @@ export default function Cotizaciones() {
           <FormularioCliente
             cliente={cliente}
             setCliente={setCliente}
+            clienteId={clienteId}
+            setClienteId={setClienteId}
             rutCliente={rutCliente}
             setRutCliente={setRutCliente}
             fechaEntrega={fechaEntrega}

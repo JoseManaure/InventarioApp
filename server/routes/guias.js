@@ -238,6 +238,21 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Nota no encontrada" });
     }
 
+    // ==========================================
+    // Evitar generar dos guías para la misma nota
+    // ==========================================
+    const guiaExistente = await GuiaDespacho.findOne({
+      notaId: new mongoose.Types.ObjectId(notaId),
+      estado: {
+        $in: ["pendiente", "emitida"]
+      }
+    });
+
+    if (guiaExistente) {
+      return res.status(409).json({
+        error: "Esta nota ya tiene una guía de despacho."
+      });
+    }
     const entregadoMap = await entregadoPorItem(nota._id);
 
     const disponiblesPorItem = new Map();

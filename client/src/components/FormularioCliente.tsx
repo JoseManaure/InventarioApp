@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from "react";
+import api from "../api/api";
 
 interface Props {
   disableTipo?: boolean;
   cliente: string;
+  clienteId: string;
+  setClienteId: React.Dispatch<React.SetStateAction<string>>;
   setCliente: React.Dispatch<React.SetStateAction<string>>;
   rutCliente: string;
   setRutCliente: React.Dispatch<React.SetStateAction<string>>;
@@ -49,20 +52,95 @@ export default function FormularioCliente({
   atencion, setAtencion,
   emailCliente, setEmailCliente,
   telefonoCliente, setTelefonoCliente,
+  clienteId,
+  setClienteId,
   formaPago, setFormaPago,
   nota, setNota
 }: Props) {
+
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [mostrarLista, setMostrarLista] = useState(false);
+
+  useEffect(() => {
+    if (cliente.trim().length < 2) {
+      setClientes([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await api.get(`/clientes?search=${cliente}`);
+        setClientes(res.data);
+        setMostrarLista(true);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [cliente]);
   return (
     <div className="space-y-4">
       {/* Datos principales */}
       <div className="flex flex-wrap gap-2">
-        <input
-          type="text"
-          placeholder="Cliente"
-          value={cliente}
-          onChange={e => setCliente(e.target.value)}
-          className="input input-bordered w-48"
-        />
+        <div className="relative w-48">
+
+          <input
+            type="text"
+            placeholder="Cliente"
+            value={cliente}
+            onChange={(e) => {
+              setCliente(e.target.value);
+              setMostrarLista(true);
+            }}
+            className="input input-bordered w-full"
+          />
+
+          {mostrarLista && clientes.length > 0 && (
+            <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+
+              {clientes.map((c) => (
+                <div
+                  key={c._id}
+                  onClick={() => {
+
+                    setClienteId(c._id);
+
+                    setCliente(c.nombre);
+
+                    setRutCliente(c.rut || "");
+
+                    setDireccionCliente(c.direccion || "");
+
+                    setComunaCliente(c.comuna || "");
+
+                    setCiudadCliente(c.ciudad || "");
+
+                    setGiroCliente(c.giro || "");
+
+                    setTelefonoCliente(c.telefono || "");
+
+                    setEmailCliente(c.email || "");
+
+                    setAtencion(c.contacto || "");
+
+                    setMostrarLista(false);
+
+                  }}
+                  className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                >
+                  <div className="font-medium">{c.nombre}</div>
+
+                  <div className="text-xs text-gray-500">
+                    {c.rut}
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          )}
+
+        </div>
 
         <input
           type="text"

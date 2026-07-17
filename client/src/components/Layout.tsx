@@ -5,11 +5,12 @@ import Navbar from "./Navbar";
 import { motion } from "framer-motion";
 
 export default function Layout() {
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 
                     dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 
                     text-gray-800 dark:text-gray-100 transition-colors duration-300">
-      
+
       {/* Sidebar */}
       <motion.div
         initial={{ x: -80, opacity: 0 }}

@@ -1,5 +1,5 @@
 import axios from "axios";
-
+import { forceLogout } from "../utils/logout";
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
@@ -16,5 +16,19 @@ export const setAuthToken = (token: string | null) => {
     delete api.defaults.headers.common["Authorization"];
   }
 };
+
+
+// ✅ interceptor global
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      console.log("⚠️ Sesión expirada");
+      forceLogout();
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default api;

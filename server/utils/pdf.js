@@ -10,12 +10,34 @@ const logoBase64 = fs.existsSync(logoPath)
   : null;
 
 function generarGuiaPDF(cliente, productos, extras) {
+  console.log("🔥 GENERANDO PDF");
+  console.log(extras);
+  console.log(
+    "PDF FORMA PAGO:",
+    extras.formaPago
+  );
+
+  console.log(
+    "PDF NOTA:",
+    extras.nota
+  );
   const doc = new jsPDF();
   const fechaHoy = new Date().toLocaleDateString('es-CL');
   const numero =
-    extras.numero ||
-    extras.numeroDocumento ||
-    '000000';
+    extras.numero ??
+    extras.numeroDocumento ??
+    0;
+  console.log(
+    "PDF FORMA PAGO:",
+    extras.formaPago
+  );
+
+  console.log(
+    "PDF NOTA:",
+    extras.nota
+  );
+  console.log("PDF NUMERO:", numero);
+  console.log("PDF EXTRAS:", extras);
   const unidadBonita = {
     unidad: 'Un.',
     m3: 'm³',
@@ -47,7 +69,11 @@ function generarGuiaPDF(cliente, productos, extras) {
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`N° ${String(numero).padStart(6, '0')}`, 160, 55);
+  doc.text(
+    `N° ${String(numero || 0).padStart(6, '0')}`,
+    160,
+    55
+  );
   doc.text(`Fecha: ${fechaHoy}`, 160, 60);
 
   // Datos cliente en dos columnas
@@ -133,14 +159,30 @@ function generarGuiaPDF(cliente, productos, extras) {
   let yNotas = finalY + 35;
   doc.setFont('helvetica', 'bold');
   doc.text('Forma de Pago:', 10, yNotas);
+
   doc.setFont('helvetica', 'normal');
-  doc.text('65% Al inicio y 35% al momento de la entrega.', 50, yNotas);
+
+  doc.text(
+    extras.formaPago || '__________________',
+    50,
+    yNotas
+  );
 
   yNotas += 6;
+
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('Nota:', 10, yNotas);
+
   doc.setFont('helvetica', 'normal');
-  doc.text('Esta cotización es aceptada después de cancelado el 65%.', 50, yNotas);
+  doc.text(
+    extras.nota || '__________________',
+    50,
+    yNotas,
+    {
+      maxWidth: 130
+    }
+  );
 
   yNotas += 10;
   doc.setFont('helvetica', 'bold');
@@ -156,6 +198,9 @@ function generarGuiaPDF(cliente, productos, extras) {
   doc.textWithLink('silvalealsergio@gmail.com', 10, yNotas + 24, {
     url: 'mailto:silvalealsergio@gmail.com',
   });
+
+  console.log("FINAL Y:", finalY);
+  console.log("Y NOTAS:", yNotas);
 
   return Buffer.from(doc.output('arraybuffer'));
 }

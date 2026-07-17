@@ -18,11 +18,28 @@ interface ItemCatalogo {
   costo?: number;
 }
 
+interface Proveedor {
+  _id: string;
+  nombre: string;
+  rut: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+  contacto: string;
+  observaciones: string;
+}
+
 export default function FacturaCompra() {
-  const [empresa, setEmpresa] = useState("");
+  const [proveedor, setProveedor] = useState("");
+  const [proveedorId, setProveedorId] = useState("");
+
   const [rut, setRut] = useState("");
-  const [rol, setRol] = useState("");
   const [direccion, setDireccion] = useState("");
+
+  const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
+  const [contacto, setContacto] = useState("");
+
   const [numeroDocumento, setNumeroDocumento] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState("factura");
 
@@ -35,6 +52,19 @@ export default function FacturaCompra() {
   const [buscandoIndex, setBuscandoIndex] = useState<number | null>(null);
   const [guardando, setGuardando] = useState(false);
 
+
+  interface Proveedor {
+    _id: string;
+    nombre: string;
+    rut: string;
+    direccion: string;
+    telefono: string;
+    email: string;
+    contacto: string;
+    observaciones: string;
+  }
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [mostrarProveedores, setMostrarProveedores] = useState(false);
   // 🔹 Calcular totales con useMemo (una sola pasada)
   const { subtotal, iva, total } = useMemo(() => {
     let subtotalCalc = 0;
@@ -82,6 +112,30 @@ export default function FacturaCompra() {
     } catch (err) {
       console.error(err);
     }
+  };
+  const buscarProveedores = async (query: string) => {
+
+    if (!query.trim()) {
+      setProveedores([]);
+      return;
+    }
+
+    try {
+
+      const res = await api.get("/proveedores", {
+        params: {
+          search: query
+        }
+      });
+
+      setProveedores(res.data);
+
+    } catch (error) {
+
+      console.error(error);
+
+    }
+
   };
 
   const actualizarProducto = (
@@ -175,21 +229,33 @@ export default function FacturaCompra() {
 
     try {
       const payload = {
-        empresa,
+        proveedor: proveedorId,
+
+        nombreProveedor: proveedor,
+
         rut,
-        rol,
+
         direccion,
+
+        telefono,
+
+        email,
+
+        contacto,
+
         numeroDocumento,
+
         tipoDocumento,
-        productos: productosPayload,
+
+        productos: productosPayload
       };
       await api.post("/facturas", payload);
       alert("✅ Factura guardada con éxito");
       console.log("👉 Enviando factura:", payload);
       // reset
-      setEmpresa("");
+      setProveedor("");
+      setProveedorId("");
       setRut("");
-      setRol("");
       setDireccion("");
       setNumeroDocumento("");
       setTipoDocumento("factura");
@@ -253,24 +319,92 @@ export default function FacturaCompra() {
               grid md:grid-cols-2 gap-4
             ">
 
-                <input
-                  value={empresa}
-                  onChange={(e) => setEmpresa(e.target.value)}
-                  placeholder="Empresa"
-                  className="
-                  h-12 px-4 rounded-2xl
-  
-                  border border-gray-200
-                  dark:border-gray-700
-  
-                  bg-white dark:bg-gray-900
-  
-                  outline-none
-  
-                  focus:ring-2
-                  focus:ring-amber-400
-                "
-                />
+                <div className="relative">
+
+                  <input
+                    value={proveedor}
+                    onChange={(e) => {
+
+                      setProveedor(e.target.value);
+
+                      setProveedorId("");
+
+                      buscarProveedores(e.target.value);
+
+                      setMostrarProveedores(true);
+
+                    }}
+                    placeholder="Proveedor"
+                    className="
+    w-full
+    h-12
+    px-4
+    rounded-2xl
+    border border-gray-200
+    dark:border-gray-700
+    bg-white dark:bg-gray-900
+    outline-none
+    focus:ring-2
+    focus:ring-amber-400
+  "
+                  />
+
+                  {
+                    mostrarProveedores &&
+                    proveedores.length > 0 && (
+
+                      <div className="
+      absolute
+      z-50
+      w-full
+      mt-2
+      bg-white
+      rounded-2xl
+      shadow-xl
+      border
+    ">
+
+                        {
+                          proveedores.map((p) => (
+                            <button
+                              key={p._id}
+                              type="button"
+                              className="
+        w-full
+        text-left
+        px-4
+        py-3
+        hover:bg-gray-100
+      "
+                              onClick={() => {
+
+                                setProveedorId(p._id);
+                                setProveedor(p.nombre);
+                                setRut(p.rut);
+                                setDireccion(p.direccion);
+                                setMostrarProveedores(false);
+
+                              }}
+                            >
+
+                              <div className="font-medium">
+                                {p.nombre}
+                              </div>
+
+                              <div className="text-sm text-gray-500">
+                                {p.rut}
+                              </div>
+
+                            </button>
+                          ))
+                        }
+
+                      </div>
+
+                    )
+                  }
+
+                </div>
 
                 <input
                   value={rut}
@@ -285,18 +419,6 @@ export default function FacturaCompra() {
                 "
                 />
 
-                <input
-                  value={rol}
-                  onChange={(e) => setRol(e.target.value)}
-                  placeholder="Rol"
-                  className="
-                  h-12 px-4 rounded-2xl
-                  border border-gray-200 dark:border-gray-700
-                  bg-white dark:bg-gray-900
-                  outline-none
-                  focus:ring-2 focus:ring-amber-400
-                "
-                />
 
                 <input
                   value={direccion}

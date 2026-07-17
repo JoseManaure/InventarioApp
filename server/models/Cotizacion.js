@@ -1,9 +1,50 @@
 // src/models/Cotizacion.js
 const mongoose = require('mongoose');
-
+console.log("✅ CARGANDO MODELO COTIZACION");
 const CotizacionSchema = new mongoose.Schema(
   {
-    cliente: { type: String, trim: true },
+    cliente: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Cliente"
+    },
+    clienteSnapshot: {
+      nombre: {
+        type: String,
+        default: ""
+      },
+      rut: {
+        type: String,
+        default: ""
+      },
+      direccion: {
+        type: String,
+        default: ""
+      },
+      comuna: {
+        type: String,
+        default: ""
+      },
+      ciudad: {
+        type: String,
+        default: ""
+      },
+      telefono: {
+        type: String,
+        default: ""
+      },
+      email: {
+        type: String,
+        default: ""
+      },
+      giro: {
+        type: String,
+        default: ""
+      },
+      atencion: {
+        type: String,
+        default: ""
+      }
+    },
     direccion: { type: String, trim: true },
     fechaHoy: { type: String },
     fechaEntrega: { type: String },
@@ -25,7 +66,12 @@ const CotizacionSchema = new mongoose.Schema(
       enum: ['cotizacion', 'nota'],
       required: true,
     },
-
+    empresa: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Empresa",
+      required: true,
+      index: true
+    },
     formaPago: {
       type: String,
       default: '65% Al inicio y 35% al momento de la entrega.',
@@ -114,7 +160,17 @@ const CotizacionSchema = new mongoose.Schema(
   }
 );
 
-// ✅ Si más adelante quieres numeración única, puedes activar un índice así:
-// CotizacionSchema.index({ numero: 1 }, { unique: true, sparse: true });
+CotizacionSchema.index({
+  empresa: 1,
+  tipo: 1,
+  estado: 1,
+  anulada: 1
+});
+
+console.log("====== CAMPOS DEL SCHEMA ======");
+console.log(Object.keys(CotizacionSchema.paths));
+console.log("===============================");
+
+module.exports = mongoose.model("Cotizacion", CotizacionSchema);
 
 module.exports = mongoose.model('Cotizacion', CotizacionSchema);

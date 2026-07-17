@@ -60,22 +60,19 @@ export default function NotasDeVenta() {
   }, []);
 
   const cargarNotas = async () => {
-
     setLoading(true);
     setProgress(0);
     setProgressVisible(true);
     try {
       const res = await api.get("/cotizaciones");
-      console.log(
-        JSON.stringify(
-          res.data.find((x) => x.tipo === "nota"),
-          null,
-          2
-        )
-      );
-      const todasNotas: Cotizacion[] = res.data.filter(
+
+      console.log("RESPUESTA API");
+      console.log(res.data[0]);
+
+      const todasNotas = res.data.filter(
         (c: Cotizacion) => c.tipo === "nota"
       );
+      console.log(todasNotas);
       setNotas(todasNotas);
     } catch (err) {
       console.error("Error al cargar notas de venta", err);
@@ -335,7 +332,9 @@ Puedes ver el documento aquí: ${pdfUrl}`;
                     className={`${estaAnulada ? "bg-red-50" : "bg-white"
                       } border-b hover:bg-gray-50`}
                   >
-                    <td className="p-3">{nota.cliente}</td>
+                    <td className="p-3">
+                      {nota.nombreCliente || "Sin cliente"}
+                    </td>
                     <td className="p-3">{nota.direccion}</td>
                     <td className="p-3">{formatearFecha(nota.fechaEntrega)}</td>
                     <td className="p-3">
@@ -358,9 +357,9 @@ Puedes ver el documento aquí: ${pdfUrl}`;
                       {nota.pdfUrl ? (
                         <button
                           onClick={() => {
-                            setPdfUrl(
-                              `${import.meta.env.VITE_API_URL}${nota.pdfUrl}`
-                            );
+                            const url = `${import.meta.env.VITE_API_URL}${nota.pdfUrl}`;
+
+                            setPdfUrl(url);
                             setShowPdfModal(true);
                           }}
                           className="text-blue-600 hover:text-blue-800"

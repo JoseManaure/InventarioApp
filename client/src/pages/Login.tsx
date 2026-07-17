@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import api, { setAuthToken } from '../api/api';
-import type { User } from '../types/User';
-
-interface LoginProps {
-  onLogin: (user: User) => void;
-}
+import api from '../api/api';
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from 'react-router-dom';
 
 
-
-export default function Login({ onLogin }: LoginProps) {
+export default function Login() {
+  const { login: authLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
+  const navigate = useNavigate();
   const login = async () => {
     try {
 
@@ -28,26 +25,12 @@ export default function Login({ onLogin }: LoginProps) {
         }
       );
 
-      localStorage.setItem(
-        "token",
-        res.data.token
-      );
-
-      localStorage.setItem(
-        "user",
-        JSON.stringify(res.data.user)
-      );
-
-      setAuthToken(
-        res.data.token
-      );
-
-      onLogin(
+      authLogin(
+        res.data.token,
         res.data.user
       );
 
-      window.location.href =
-        "/dashboard-ventas";
+      navigate("/dashboard-ventas");
 
     } catch (err: any) {
 

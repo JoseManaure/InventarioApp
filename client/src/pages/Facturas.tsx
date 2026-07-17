@@ -5,18 +5,41 @@ interface Producto {
   nombre: string;
   cantidad: number;
   precioUnitario: number;
+  costo: number;
+}
+
+interface Proveedor {
+  _id: string;
+  nombre: string;
+  rut: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+  contacto: string;
+}
+
+interface Usuario {
+  _id: string;
+  name: string;
+  email: string;
 }
 
 interface Factura {
   _id: string;
+
   empresa: string;
-  rut: string;
-  rol: string;
-  direccion: string;
-  productos?: Producto[];
+
+  proveedor: Proveedor;
+
+  productos: Producto[];
+
   numeroDocumento: string;
+
   tipoDocumento: 'factura' | 'boleta' | 'guia';
+
   fechaCreacion: string;
+
+  createdBy: Usuario;
 }
 
 export default function Facturas() {
@@ -32,19 +55,25 @@ export default function Facturas() {
   const facturasPorPagina = 5;
 
   useEffect(() => {
-  const cargarFacturas = async () => {
-    setLoading(true);
-    try {
-       const res = await api.get('/facturas', { params: { limite: 1000 } });
-      setFacturas(res.data.facturas || []); // ✅ extrae el array de facturas
-    } catch (err) {
-      console.error('Error cargando facturas', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  cargarFacturas();
-}, []);
+    const cargarFacturas = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/facturas', {
+          params: { limite: 1000 }
+        });
+
+        console.log("FACTURAS:");
+        console.log(JSON.stringify(res.data.facturas[0], null, 2));
+
+        setFacturas(res.data.facturas || []);
+      } catch (err) {
+        console.error('Error cargando facturas', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarFacturas();
+  }, []);
 
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
@@ -77,7 +106,7 @@ export default function Facturas() {
   const formatearFecha = (fecha: string) => {
     if (!fecha) return '';
     const d = new Date(fecha);
-    return `${d.getDate().toString().padStart(2,'0')}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getFullYear()}`;
+    return `${d.getDate().toString().padStart(2, '0')}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getFullYear()}`;
   };
 
   return (
@@ -128,8 +157,16 @@ export default function Facturas() {
                 const total = neto + iva;
                 return (
                   <tr key={f._id} className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer">
-                    <td className="p-3">{f.empresa}</td>
-                    <td className="p-3 text-blue-600 underline" onClick={() => setSelectedFactura(f)}>{f.rut}</td>
+                    <td className="p-3">
+                      {f.proveedor?.nombre}
+                    </td>
+
+                    <td
+                      className="p-3 text-blue-600 underline"
+                      onClick={() => setSelectedFactura(f)}
+                    >
+                      {f.proveedor?.rut}
+                    </td>
                     <td className="p-3">{formatearFecha(f.fechaCreacion)}</td>
                     <td className="p-3">{f.numeroDocumento} ({f.tipoDocumento})</td>
                     <td className="p-3 font-semibold">${neto.toLocaleString('es-CL')}</td>
@@ -181,10 +218,13 @@ export default function Facturas() {
             >
               X
             </button>
-            <p><b>Empresa:</b> {selectedFactura.empresa}</p>
-            <p><b>RUT:</b> {selectedFactura.rut}</p>
-            <p><b>Tipo:</b> {selectedFactura.tipoDocumento}</p>
-            <p><b>Dirección:</b> {selectedFactura.direccion}</p>
+            <p><b>Proveedor:</b> {selectedFactura.proveedor?.nombre}</p>
+
+            <p><b>RUT:</b> {selectedFactura.proveedor?.rut}</p>
+
+            <p><b>Dirección:</b> {selectedFactura.proveedor?.direccion}</p>
+
+            <p><b>Contacto:</b> {selectedFactura.proveedor?.contacto || '-'}</p>
             <p><b>Rol / OC:</b> {selectedFactura.rol}</p>
             <p><b>Fecha:</b> {formatearFecha(selectedFactura.fechaCreacion)}</p>
 

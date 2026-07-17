@@ -22,14 +22,26 @@ const ProductoSchema = new mongoose.Schema({
 });
 
 const FacturaSchema = new mongoose.Schema({
-  empresa: { type: String, required: true },
-  rut: { type: String, required: true },
-  rol: { type: String },
-  direccion: { type: String },
+  empresa: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Empresa",
+    required: true,
+    index: true
+  },
+  proveedor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Proveedor",
+    required: true
+  },
   productos: { type: [ProductoSchema], default: [] },
   numeroDocumento: { type: String, required: true },
   tipoDocumento: { type: String, enum: ['factura', 'boleta', 'guia'], required: true },
   fechaCreacion: { type: Date, default: Date.now },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  }
 });
 
 module.exports = mongoose.model('Factura', FacturaSchema);

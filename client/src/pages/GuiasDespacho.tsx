@@ -32,6 +32,7 @@ export default function GuiasDespacho() {
   const [guias, setGuias] = useState<GuiaDespacho[]>([]);
   const [nuevaGuia, setNuevaGuia] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [generando, setGenerando] = useState(false);
 
   const cargarDatos = useCallback(async () => {
     if (!notaId) return;
@@ -72,21 +73,22 @@ export default function GuiasDespacho() {
   };
 
   const crearGuia = async () => {
+    if (generando) return;
     if (!nota) return;
-
-   const productosAGuardar = nota.productos
-  .filter((p) => p.itemId?._id && (nuevaGuia[p.itemId._id] || 0) > 0)
-  .map((p) => {
-    const key = p.itemId._id; // 🔹 siempre usar itemId._id
-    const maxDespachable = p.cantidad - (p.entregado || 0);
-    const cantidad = Math.min(nuevaGuia[key] || 0, maxDespachable);
-    return {
-      itemId: key,
-      nombre: p.nombre,
-      cantidad,
-      precio: p.precio,
-    };
-  });
+    setGenerando(true);
+    const productosAGuardar = nota.productos
+      .filter((p) => p.itemId?._id && (nuevaGuia[p.itemId._id] || 0) > 0)
+      .map((p) => {
+        const key = p.itemId._id; // 🔹 siempre usar itemId._id
+        const maxDespachable = p.cantidad - (p.entregado || 0);
+        const cantidad = Math.min(nuevaGuia[key] || 0, maxDespachable);
+        return {
+          itemId: key,
+          nombre: p.nombre,
+          cantidad,
+          precio: p.precio,
+        };
+      });
 
 
     if (productosAGuardar.length === 0) {
@@ -99,10 +101,10 @@ export default function GuiasDespacho() {
         notaId,
         productos: productosAGuardar,
       });
-       console.log("➡️ Enviando al backend:", {
-    notaId,
-    productos: productosAGuardar,
-  });
+      console.log("➡️ Enviando al backend:", {
+        notaId,
+        productos: productosAGuardar,
+      });
 
       alert("✅ Guía creada correctamente");
       const nuevaGuiaCreada: GuiaDespacho = res.data;
@@ -123,6 +125,10 @@ export default function GuiasDespacho() {
     } catch (err) {
       console.error("Error creando guía", err);
       alert("❌ Error al crear guía");
+    } finally {
+
+      setGenerando(false);
+
     }
   };
 
@@ -177,9 +183,8 @@ export default function GuiasDespacho() {
                         <td className="p-2 border text-center">{p.cantidad}</td>
                         <td className="p-2 border text-center">{p.entregado || 0}</td>
                         <td
-                          className={`p-2 border text-center font-semibold ${
-                            pendiente === 0 ? "text-green-600" : "text-red-600"
-                          }`}
+                          className={`p-2 border text-center font-semibold ${pendiente === 0 ? "text-green-600" : "text-red-600"
+                            }`}
                         >
                           {pendiente}
                         </td>
@@ -227,9 +232,10 @@ export default function GuiasDespacho() {
               })}
             </div>
             <button
+              disabled={generando}
               onClick={crearGuia}
               className="mt-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
-            >
+            >   {generando ? "Generando..." : "Generar guía"}
               <Plus className="w-4 h-4" /> Crear Guía
             </button>
           </div>
@@ -248,11 +254,10 @@ export default function GuiasDespacho() {
             <div className="flex justify-between items-center">
               <h3 className="font-semibold">Guía N° {g.numero}</h3>
               <span
-                className={`px-2 py-1 rounded text-sm font-medium ${
-                  g.estado === "completada"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-yellow-100 text-yellow-800"
-                }`}
+                className={`px-2 py-1 rounded text-sm font-medium ${g.estado === "completada"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-yellow-100 text-yellow-800"
+                  }`}
               >
                 {g.estado}
               </span>

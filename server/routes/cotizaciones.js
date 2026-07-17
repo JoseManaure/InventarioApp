@@ -14,7 +14,9 @@ const {
 const fs = require('fs');
 const path = require('path');
 const { generarGuiaPDF } = require('../utils/pdf');
-
+const User = require("../models/User");
+const Empresa = require("../models/Empresa");
+const Cliente = require("../models/Cliente");
 
 const { z } = require("zod");
 const sanitizeHtml = require("sanitize-html");
@@ -57,6 +59,7 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     const {
       cliente,
+      clienteId,
       direccion,
       fechaHoy,
       fechaEntrega,
@@ -148,6 +151,73 @@ router.post('/', verifyToken, async (req, res) => {
 
     const total = productosValidados.reduce((acc, p) => acc + p.total, 0);
 
+    // ========================================
+    // Crear o actualizar cliente automáticamente
+    // ========================================
+
+    let clienteDB = null;
+
+    if (cliente?.trim()) {
+
+      clienteDB = await Cliente.findOne({
+        empresa: req.user.empresa,
+        nombre: cliente.trim(),
+        activo: true
+      });
+
+      if (!clienteDB) {
+
+        clienteDB = await Cliente.create({
+          empresa: req.user.empresa,
+
+          nombre: cliente.trim(),
+
+          rut: rutCliente || "",
+
+          direccion: direccionCliente || direccion || "",
+
+          comuna: comunaCliente || "",
+
+          ciudad: ciudadCliente || "",
+
+          giro: giroCliente || "",
+
+          telefono: telefonoCliente || "",
+
+          email: emailCliente || "",
+
+          contacto: atencion || ""
+        });
+
+        console.log("✅ Cliente creado:", clienteDB.nombre);
+
+      } else {
+
+        clienteDB.rut = rutCliente || clienteDB.rut;
+
+        clienteDB.direccion = direccionCliente || direccion || clienteDB.direccion;
+
+        clienteDB.comuna = comunaCliente || clienteDB.comuna;
+
+        clienteDB.ciudad = ciudadCliente || clienteDB.ciudad;
+
+        clienteDB.giro = giroCliente || clienteDB.giro;
+
+        clienteDB.telefono = telefonoCliente || clienteDB.telefono;
+
+        clienteDB.email = emailCliente || clienteDB.email;
+
+        clienteDB.contacto = atencion || clienteDB.contacto;
+
+        await clienteDB.save();
+
+        console.log("🔄 Cliente actualizado:", clienteDB.nombre);
+
+      }
+
+    }
+
+
     let numeroFinal = null;
     let cotizacion;
 
@@ -163,7 +233,9 @@ router.post('/', verifyToken, async (req, res) => {
       cotizacion = await Cotizacion.findByIdAndUpdate(
         _id,
         {
-          cliente,
+          cliente: clienteDB ? clienteDB._id : null,
+          clienteRef: clienteDB ? clienteDB._id : null,
+          clienteId: clienteDB ? clienteDB._id : null,
           direccion,
           fechaHoy,
           fechaEntrega: fechaEntregaValida,
@@ -198,7 +270,11 @@ router.post('/', verifyToken, async (req, res) => {
         JSON.stringify(productosValidados, null, 2)
       );
       cotizacion = await Cotizacion.create({
-        cliente,
+        cliente: clienteDB ? clienteDB._id : null,
+
+        clienteRef: clienteDB ? clienteDB._id : null,
+
+        clienteId: clienteDB ? clienteDB._id : null,
         direccion,
         fechaHoy,
         fechaEntrega: fechaEntregaValida,
@@ -221,6 +297,7 @@ router.post('/', verifyToken, async (req, res) => {
         telefonoCliente,
         formaPago: formaPago ?? '',
         nota: nota ?? '',
+        empresa: req.user.empresa,
       });
     }
 
@@ -259,13 +336,21 @@ router.post('/', verifyToken, async (req, res) => {
     console.log(
       JSON.stringify(productosValidados, null, 2)
     );
+    console.log("=================================");
+    console.log("FORMA PAGO FINAL:", formaPago);
+    console.log("NOTA FINAL:", nota);
+    console.log("TIPO:", tipo);
+    console.log("=================================");
     // =========================
     // 📄 GENERAR PDF AUTOMÁTICO
     // =========================
     if (estado !== 'borrador') {
 
+
+      const clientePDF = clienteDB?.nombre || "";
+
       const pdfBuffer = generarGuiaPDF(
-        cliente,
+        clientePDF,
         productosValidados,
         {
           numeroDocumento: numeroFinal,
@@ -321,21 +406,81 @@ router.post('/', verifyToken, async (req, res) => {
 // =========================
 // 📌 Obtener todas (con populate)
 // =========================
-router.get(
-  '/',
+router.get('/',
   verifyToken,
   isAdmin,
   async (req, res) => {
     try {
-      const cotizaciones = await Cotizacion.find().lean()
+
+      let empresaId = req.user.empresa;
+
+      // 🔥 AUTO FIX: si no tiene empresa, crearla
+      if (!empresaId) {
+        const user = await User.findById(req.user.id || req.user._id);
+
+        const nuevaEmpresa = await Empresa.create({
+          nombre: `Empresa de ${user.name}`,
+          owner: user._id
+        });
+
+        empresaId = nuevaEmpresa._id;
+
+        await User.findByIdAndUpdate(user._id, {
+          empresa: empresaId
+        });
+      }
+
+      const cotizaciones = await Cotizacion.find({
+        empresa: req.user.empresa
+      })
+        .populate("cliente", "nombre rut telefono email giro direccion comuna ciudad")
         .populate("productos.itemId", "nombre costo")
         .populate("createdBy", "name email role")
-        .sort({ createdAt: -1 });
-      res.json(cotizaciones);
+        .sort({ createdAt: -1 })
+        .lean();
+
+      console.log("PRIMERA COTIZACION:");
+      console.log(JSON.stringify(cotizaciones[0], null, 2));
+
+
+      const resultado = cotizaciones.map((c) => ({
+        ...c,
+
+        nombreCliente:
+          c.cliente?.nombre ||
+          c.clienteSnapshot?.nombre ||
+          "",
+
+        rutCliente:
+          c.cliente?.rut ||
+          c.clienteSnapshot?.rut ||
+          c.rutCliente ||
+          "",
+
+        telefonoCliente:
+          c.cliente?.telefono ||
+          c.clienteSnapshot?.telefono ||
+          c.telefonoCliente ||
+          "",
+
+        emailCliente:
+          c.cliente?.email ||
+          c.clienteSnapshot?.email ||
+          c.emailCliente ||
+          "",
+      }));
+
+      return res.json(resultado);
+
+
     } catch (error) {
-      res.status(500).json({ error: 'Error al obtener cotizaciones' });
+      console.error(error);
+      return res.status(500).json({
+        error: 'Error al obtener cotizaciones'
+      });
     }
-  });
+  }
+);
 
 
 // ✅ Declaración global para esta ruta
@@ -358,6 +503,7 @@ const normalizarTexto = (texto = "") => {
     .replace(/\s+/g, " ") // espacios múltiples → uno
     .trim();
 };
+
 router.post('/public', publicLimiter, async (req, res) => {
   try {
     console.log("📥 REQUEST /public");
@@ -495,7 +641,7 @@ router.post('/public', publicLimiter, async (req, res) => {
     }
 
     const numeroFinal = await obtenerNuevoCorrelativoSeguro("cotizacion");
-
+    console.log("CORRELATIVO GENERADO:", numeroFinal);
     const nuevaCotizacion = await Cotizacion.create({
       cliente,
       direccion,
@@ -508,7 +654,8 @@ router.post('/public', publicLimiter, async (req, res) => {
       total: totalReal,
       tipo: "cotizacion",
       estado: "finalizada",
-      origen: "web_publica"
+      origen: "web_publica",
+      empresa: req.user.empresa,
     });
 
     console.log("✅ Cotización creada:", nuevaCotizacion._id);
@@ -537,8 +684,7 @@ router.get("/debug-items", async (req, res) => {
 // =========================
 // 📊 Exportar Excel
 // =========================
-router.get(
-  "/exportar-excel",
+router.get("/exportar-excel",
   verifyToken,
   isAdmin,
   async (req, res) => {
@@ -908,13 +1054,24 @@ router.get("/:id", async (req, res) => {
 // =========================
 // 📌 Convertir a Nota
 // =========================
-router.post(
-  '/:id/convertir-a-nota',
+router.post('/:id/convertir-a-nota',
   verifyToken,
   isAdmin,
   async (req, res) => {
+    console.log({
+      formaPago: req.body.formaPago,
+      nota: req.body.nota
+    });
     try {
       const cotizacion = await Cotizacion.findById(req.params.id);
+      console.log("=== COTIZACION ORIGINAL ===");
+      console.log({
+        id: cotizacion._id,
+        tipo: cotizacion.tipo,
+        numero: cotizacion.numero,
+        formaPago: cotizacion.formaPago,
+        nota: cotizacion.nota
+      });
       if (!cotizacion) {
         return res.status(404).json({ error: "Cotización no encontrada" });
       }
@@ -935,7 +1092,12 @@ router.post(
       );
 
       const total = subtotal + iva;
+
+      console.log("Empresa cotización:", cotizacion.empresa);
+
       const nuevaNota = await Cotizacion.create({
+        empresa: cotizacion.empresa,
+
         cliente: cotizacion.cliente,
         direccion: cotizacion.direccion || cotizacion.direccionCliente || '',
         fechaHoy: cotizacion.fechaHoy,
@@ -952,7 +1114,8 @@ router.post(
         atencion: cotizacion.atencion,
         emailCliente: cotizacion.emailCliente,
         telefonoCliente: cotizacion.telefonoCliente,
-
+        formaPago: cotizacion.formaPago || '',
+        nota: cotizacion.nota || '',
         productos: cotizacion.productos.map(p => ({
           itemId: p.itemId,
           codigo: p.codigo || '',
@@ -979,7 +1142,7 @@ router.post(
         iva,
         total,
       });
-
+      console.log("Número asignado:", nuevaNota.numero);
       // =========================
       // Marcar cotización original
       // como convertida
@@ -1021,7 +1184,73 @@ router.post(
       if (!fechaHasta) {
         console.warn("⚠️ fechaEntrega inválida en nota:", nuevaNota._id);
       }
+      // =========================
+      // GENERAR PDF NOTA
+      // =========================
+      console.log({
+        numero: nuevaNota.numero,
+        formaPago: nuevaNota.formaPago,
+        nota: nuevaNota.nota
+      });
+      const clientePDF = await Cliente.findById(nuevaNota.cliente);
 
+      const pdfBuffer = generarGuiaPDF(
+        clientePDF?.nombre || '',
+        nuevaNota.productos,
+        {
+          numero: nuevaNota.numero,
+
+          tipo: 'nota',
+
+          rutCliente: nuevaNota.rutCliente,
+          giroCliente: nuevaNota.giroCliente,
+          direccionCliente: nuevaNota.direccionCliente,
+          comunaCliente: nuevaNota.comunaCliente,
+          ciudadCliente: nuevaNota.ciudadCliente,
+
+          atencion: nuevaNota.atencion,
+          emailCliente: nuevaNota.emailCliente,
+          telefonoCliente: nuevaNota.telefonoCliente,
+
+          fechaEntrega: nuevaNota.fechaEntrega,
+
+          metodoPago: nuevaNota.metodoPago,
+
+          direccion: nuevaNota.direccion,
+
+          formaPago: nuevaNota.formaPago,
+
+          nota: nuevaNota.nota
+        }
+      );
+
+      const nombreArchivo = `nota-${nuevaNota.numero}.pdf`;
+
+      const carpetaPDF = path.join(
+        __dirname,
+        '../uploads/pdfs'
+      );
+
+      if (!fs.existsSync(carpetaPDF)) {
+        fs.mkdirSync(carpetaPDF, {
+          recursive: true
+        });
+      }
+
+      const rutaPDF = path.join(
+        carpetaPDF,
+        nombreArchivo
+      );
+
+      fs.writeFileSync(
+        rutaPDF,
+        pdfBuffer
+      );
+
+      nuevaNota.pdfUrl =
+        `/uploads/pdfs/${nombreArchivo}`;
+
+      await nuevaNota.save();
       res.status(201).json(nuevaNota);
       console.log("🆕 NOTA CREADA:", nuevaNota);
     } catch (error) {

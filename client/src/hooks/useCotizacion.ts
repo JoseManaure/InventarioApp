@@ -13,6 +13,7 @@ export interface ProductoResumen {
 
 export function useCotizacion(cotizacionId?: string) {
   const [cliente, setCliente] = useState('');
+  const [clienteId, setClienteId] = useState("");
   const [rutCliente, setRutCliente] = useState('');
   const [direccion, setDireccion] = useState('');
   const [fechaEntrega, setFechaEntrega] = useState('');
@@ -177,6 +178,8 @@ export function useCotizacion(cotizacionId?: string) {
   return {
     cliente, setCliente,
     rutCliente, setRutCliente,
+    clienteId,
+    setClienteId,
     direccion, setDireccion,
     fechaEntrega, setFechaEntrega,
     metodoPago, setMetodoPago,

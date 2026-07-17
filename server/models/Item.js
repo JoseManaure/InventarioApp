@@ -1,17 +1,45 @@
 const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
-
-  nombre: String,
-  cantidad: Number,
+  nombre: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  cantidad: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  precio: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  costo: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   fecha: Date,
-  precio: Number,
-  costo: Number,
   codigo: String, // no pongas unique aquí, lo pondremos abajo con .index()
   unidad: {
     type: String,
-    enum: ['unidad', 'm3', 'tonelada', 'metro_lineal'],
+    enum: [
+      "unidad",
+      "m3",
+      "mts",
+      "lts",
+      "tonelada",
+      "metro_lineal"
+    ],
     default: 'unidad'
+  },
+  empresa: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Empresa",
+    required: true,
+    index: true
   },
   modificadoPor: {
     type: mongoose.Schema.Types.ObjectId,
@@ -32,7 +60,10 @@ const itemSchema = new mongoose.Schema({
 });
 
 // ✅ Este es el único índice: sparse + único
-itemSchema.index({ codigo: 1 }, { unique: true, sparse: true });
+itemSchema.index(
+  { empresa: 1, codigo: 1 },
+  { unique: true, sparse: true }
+);
 itemSchema.index({ nombre: 'text', codigo: 'text' });
 
 module.exports = mongoose.model('Item', itemSchema);

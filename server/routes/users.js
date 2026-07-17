@@ -44,6 +44,50 @@ router.get(
 );
 
 
+router.get(
+    "/admin/summary",
+    verifyToken,
+    requireRole("admin"),
+    async (req, res) => {
+        try {
+            const users = await User.find();
+
+            const now = new Date();
+
+            const total = users.length;
+
+            const active = users.filter(
+                u =>
+                    u.isActive &&
+                    (!u.trialEndsAt || new Date(u.trialEndsAt) > now)
+            ).length;
+
+            const expired = users.filter(
+                u =>
+                    u.trialEndsAt &&
+                    new Date(u.trialEndsAt) <= now
+            ).length;
+
+            const suspended = users.filter(
+                u => !u.isActive
+            ).length;
+
+            res.json({
+                total,
+                active,
+                expired,
+                suspended
+            });
+
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({
+                error: "Error obteniendo resumen"
+            });
+        }
+    }
+);
+
 // =====================================
 // CREAR USUARIO
 // =====================================
@@ -59,7 +103,9 @@ router.post(
                 name,
                 email,
                 password,
-                role
+                role,
+                trialDays,
+                empresa
             } = req.body;
 
             const existe =
@@ -78,13 +124,24 @@ router.post(
                     password,
                     10
                 );
+            let trialEndsAt = null;
 
+            if (trialDays && Number(trialDays) > 0) {
+
+                trialEndsAt = new Date();
+
+                trialEndsAt.setDate(
+                    trialEndsAt.getDate() + Number(trialDays)
+                );
+            }
             const usuario =
                 await User.create({
                     name,
                     email,
                     password: hash,
-                    role
+                    role,
+                    trialEndsAt,
+                    empresa,
                 });
 
             res.status(201).json({
@@ -104,6 +161,69 @@ router.post(
     }
 );
 
+// =====================================
+// EXTENDER TRIAL
+// =====================================
+router.patch(
+    '/:id/extend-trial',
+    verifyToken,
+    requireRole('admin'),
+    async (req, res) => {
+
+        try {
+
+            const { days } = req.body;
+
+            const dias = Number(days);
+
+            if (!dias || dias <= 0) {
+                return res.status(400).json({
+                    error: 'Cantidad de días inválida'
+                });
+            }
+
+            const user = await User.findById(req.params.id);
+
+            if (!user) {
+                return res.status(404).json({
+                    error: 'Usuario no encontrado'
+                });
+            }
+
+            const hoy = new Date();
+
+            // Si el trial sigue vigente, suma desde esa fecha.
+            // Si ya expiró o no existe, comienza desde hoy.
+            const fechaBase =
+                user.trialEndsAt && new Date(user.trialEndsAt) > hoy
+                    ? new Date(user.trialEndsAt)
+                    : hoy;
+
+            fechaBase.setDate(
+                fechaBase.getDate() + dias
+            );
+
+            user.trialEndsAt = fechaBase;
+
+            await user.save();
+
+            res.json({
+                message: `Trial extendido ${dias} días`,
+                trialEndsAt: user.trialEndsAt
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            res.status(500).json({
+                error: 'Error extendiendo trial'
+            });
+
+        }
+
+    }
+);
 
 // =====================================
 // ELIMINAR USUARIO

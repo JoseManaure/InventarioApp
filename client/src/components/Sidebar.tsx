@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { Settings } from "lucide-react";
 
 import {
   LayoutDashboard,
@@ -15,13 +17,14 @@ import {
   Moon,
   Sun,
   Menu,
+  Building2,
   X,
+  Users,
 } from "lucide-react";
-
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function SidebarFlotante() {
-
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const [isDark, setIsDark] = useState(false);
@@ -55,55 +58,81 @@ export default function SidebarFlotante() {
     );
   };
 
-  const links = [
 
+  const links = [
+    {
+      to: "/empresa",
+      label: "Empresa",
+      icon: Building2,
+      roles: ["admin"]
+    },
+    {
+      to: "/clientes",
+      label: "Clientes",
+      icon: Users,
+      roles: ["admin", "vendedor"]
+    },
     {
       to: "/dashboard-ventas",
       label: "Dashboard",
-      icon: LayoutDashboard
+      icon: LayoutDashboard,
+      roles: ["admin", "contador", "vendedor"]
     },
-
     {
       to: "/inventario",
       label: "Inventario",
-      icon: Boxes
+      icon: Boxes,
+      roles: ["admin", "vendedor"]
     },
 
     {
       to: "/cotizaciones",
       label: "Documentos",
-      icon: FileText
+      icon: FileText,
+      roles: ["admin", "vendedor"]
     },
 
     {
       to: "/notas",
       label: "Notas",
-      icon: StickyNote
+      icon: StickyNote,
+      roles: ["admin", "vendedor"]
     },
 
     {
       to: "/ver-cotizaciones",
       label: "Cotizaciones",
-      icon: Files
+      icon: Files,
+      roles: ["admin", "vendedor", "contador"]
     },
 
     {
       to: "/productos",
       label: "Productos",
-      icon: PackageCheck
+      icon: PackageCheck,
+      roles: ["admin", "vendedor"]
     },
 
     {
       to: "/facturas/nueva",
       label: "Recepción",
-      icon: FileInput
+      icon: FileInput,
+      roles: ["admin", "contador"]
     },
 
     {
       to: "/ver-borradores",
       label: "Borradores",
-      icon: ArchiveRestore
+      icon: ArchiveRestore,
+      roles: ["admin", "vendedor"]
+    },
+    {
+      to: "/configuracion",
+      label: "Configuración",
+      icon: Settings,
+      roles: ["admin"]
     }
+
   ];
 
   return (
@@ -280,17 +309,19 @@ export default function SidebarFlotante() {
           p-4 space-y-1
         ">
 
-          {links.map(({ to, label, icon: Icon }) => (
+          {links
+            .filter(link => user && link.roles.includes(user.role))
+            .map(({ to, label, icon: Icon }) => (
 
-            <NavLink
+              <NavLink
 
-              key={to}
+                key={to}
 
-              to={to}
+                to={to}
 
-              onClick={() => setIsOpen(false)}
+                onClick={() => setIsOpen(false)}
 
-              className={({ isActive }) => `
+                className={({ isActive }) => `
 
                 relative flex items-center gap-3
 
@@ -304,13 +335,13 @@ export default function SidebarFlotante() {
 
                 ${isActive
 
-                  ? `
+                    ? `
                     bg-slate-900
                     text-white
                     shadow-lg shadow-slate-900/10
                   `
 
-                  : `
+                    : `
                     text-gray-600
                     dark:text-gray-300
 
@@ -320,20 +351,20 @@ export default function SidebarFlotante() {
                     hover:text-gray-900
                     dark:hover:text-white
                   `
-                }
+                  }
               `}
 
-            >
+              >
 
-              <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" />
 
-              <span>
-                {label}
-              </span>
+                <span>
+                  {label}
+                </span>
 
-            </NavLink>
+              </NavLink>
 
-          ))}
+            ))}
 
         </nav>
 

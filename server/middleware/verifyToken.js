@@ -1,40 +1,50 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET;
 
 function verifyToken(req, res, next) {
 
-  const authHeader = req.headers.authorization;
+  console.log("---------------------");
+  console.log("Authorization:");
+  console.log(req.headers.authorization);
 
-  if (!authHeader) {
+  const bearer = req.headers.authorization;
+
+  const token = bearer?.startsWith("Bearer ")
+    ? bearer.split(" ")[1]
+    : bearer;
+
+  console.log("TOKEN:");
+  console.log(token);
+
+  if (!token) {
+    console.log("NO HAY TOKEN");
     return res.status(401).json({
-      error: 'Token requerido'
+      error: "Token requerido"
     });
   }
-
-  const token = authHeader.startsWith('Bearer ')
-    ? authHeader.split(' ')[1]
-    : authHeader;
 
   try {
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-    console.log('JWT:', decoded);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    req.user = {
-      id: decoded.id,
-      role: decoded.role
-    };
+    console.log("JWT DECODIFICADO");
+    console.log(decoded);
+
+    req.user = decoded;
 
     next();
 
-  } catch (error) {
+  } catch (err) {
+
+    console.log("ERROR JWT");
+    console.log(err);
 
     return res.status(401).json({
-      error: 'Token inválido'
+      error: "Token inválido"
     });
+
   }
+
 }
 
 module.exports = verifyToken;

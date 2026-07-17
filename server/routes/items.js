@@ -20,10 +20,16 @@ router.post(
       let existente;
 
       if (codigo) {
-        existente = await Item.findOne({ codigo });
+        existente = await Item.findOne({
+          empresa: req.user.empresa,
+          codigo
+        });
       }
       if (!existente) {
-        existente = await Item.findOne({ nombre });
+        existente = await Item.findOne({
+          empresa: req.user.empresa,
+          nombre
+        });
       }
 
 
@@ -49,7 +55,8 @@ router.post(
           costo,
           modificadoPor: req.user.id,
           comprometidos,
-          codigo
+          codigo,
+          empresa: req.user.empresa
         });
 
         await nuevoItem.save();
@@ -67,64 +74,99 @@ router.get('/', verifyToken, async (req, res) => {
   try {
     const { search = '', page = 1, limit = 20 } = req.query;
 
-    const filtros = {};
+    const filtros = {
+      empresa: req.user.empresa
+    };
+
     if (search) {
       const regex = new RegExp(search, 'i');
-      filtros.$or = [{ nombre: regex }, { codigo: regex }];
+
+      filtros.$or = [
+        { nombre: regex },
+        { codigo: regex }
+      ];
     }
 
-    const safeLimit = Math.min(
-      Number(limit) || 20,
-      100
-    );
+    const safeLimit = Math.min(Number(limit) || 20, 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+    const skip = (safePage - 1) * safeLimit;
+    console.log("Empresa del usuario:", req.user.empresa);
+    console.log("Filtros:", filtros);
 
-    const safePage = Math.max(
-      Number(page) || 1,
-      1
-    );
+    const totalEmpresa = await Item.countDocuments({
+      empresa: req.user.empresa
+    });
 
-    const skip =
-      (safePage - 1) * safeLimit;
+    const totalGeneral = await Item.countDocuments({});
 
+    console.log("Items empresa:", totalEmpresa);
+    console.log("Items total:", totalGeneral);
     const [items, total] = await Promise.all([
       Item.find(filtros)
-        .select('nombre precio codigo costo cantidad comprometidos ')
+        .select('nombre precio codigo costo cantidad comprometidos')
         .populate('modificadoPor', 'name email')
         .skip(skip)
         .limit(safeLimit)
         .sort({ nombre: 1 }),
+
       Item.countDocuments(filtros)
     ]);
 
-    res.json({ items, total, page: safePage, pages: Math.ceil(total / safeLimit) });
+    res.json({
+      items,
+      total,
+      page: safePage,
+      pages: Math.ceil(total / safeLimit)
+    });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al obtener los productos' });
+    res.status(500).json({
+      error: 'Error al obtener los productos'
+    });
   }
 });
 
 
-// Función para escapar caracteres especiales en regex
-function escapeRegex(text) {
-  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-}
+
 
 // Buscar por nombre o código (para autocompletar)
 router.get('/buscar', verifyToken, async (req, res) => {
-  const q = req.query.q?.toString().toLowerCase() || '';
-  const safeQ = escapeRegex(q);
-
   try {
-    const items = await Item.find({
-      $or: [
-        { nombre: new RegExp(safeQ, 'i') },
-        { codigo: new RegExp(safeQ, 'i') }
-      ]
-    }).limit(5);
+
+    const { q } = req.query;
+
+    const filtros = {
+      empresa: req.user.empresa
+    };
+
+    if (q) {
+      filtros.$or = [
+        {
+          nombre: {
+            $regex: q,
+            $options: 'i'
+          }
+        },
+        {
+          codigo: {
+            $regex: q,
+            $options: 'i'
+          }
+        }
+      ];
+    }
+
+    const items = await Item.find(filtros)
+      .limit(20);
+
     res.json(items);
-  } catch (err) {
-    console.error('Error en búsqueda:', err);
-    res.status(500).json({ error: 'Error en búsqueda' });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: 'Error buscando items'
+    });
   }
 });
 

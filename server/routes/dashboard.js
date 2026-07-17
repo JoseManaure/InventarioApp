@@ -25,20 +25,28 @@ const normalizarProducto = (nombre = "") => {
 // 📊 DASHBOARD VENTAS
 // ======================================
 router.get(
-    '/ventas',
+    "/ventas",
     verifyToken,
     requireAdmin,
     async (req, res) => {
 
         try {
 
-            console.log("📊 DB:", mongoose.connection.name);
+            if (!req.user.empresa) {
+                return res.status(400).json({
+                    error: "Usuario sin empresa"
+                });
+            }
 
             const notas = await Cotizacion.find({
-                tipo: 'nota',
-                estado: 'finalizada',
+                empresa: req.user.empresa,
+                tipo: "nota",
+                estado: "finalizada",
                 anulada: null
-            });
+            })
+                .select(
+                    "cliente productos fechaEntrega estado numero total"
+                );
 
             console.log("📊 TOTAL NOTAS:", notas.length);
 
