@@ -3,10 +3,13 @@ require('jspdf-autotable'); // solo require para extender jsPDF
 const fs = require('fs');
 const path = require('path');
 
+
+
 // Ruta logo base64
 const logoPath = path.join(__dirname, '../../client/src/assets/logo-rasiva.png');
 const logoBase64 = fs.existsSync(logoPath)
-  ? fs.readFileSync(logoPath, 'base64')
+  ? "data:image/png;base64," +
+  fs.readFileSync(logoPath, "base64")
   : null;
 
 function generarGuiaPDF(cliente, productos, extras) {
